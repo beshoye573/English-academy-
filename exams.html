@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الاختبارات | English Academy</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .page {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+
+        .panel,
+        .exam-card {
+            background: var(--surface, #121b2e);
+            border: 1px solid #26354d;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        input,
+        textarea,
+        select {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            margin: 8px 0 16px;
+            border: 1px solid #34445e;
+            border-radius: 8px;
+            background: #0b1120;
+            color: white;
+            font: inherit;
+        }
+
+        button {
+            padding: 10px 18px;
+            border: 0;
+            border-radius: 8px;
+            cursor: pointer;
+            font: inherit;
+            margin: 4px;
+        }
+
+        .save {
+            background: #38bdf8;
+            color: #07111e;
+        }
+
+        .edit {
+            background: #64748b;
+            color: white;
+        }
+
+        .delete {
+            background: #dc4444;
+            color: white;
+        }
+
+        .exam-card h3 {
+            color: #38bdf8;
+        }
+
+        .status {
+            margin: 12px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="page">
+        <a href="admin.html">← العودة إلى لوحة الإدارة</a>
+        <h1>إدارة الاختبارات Exams</h1>
+        <p>أنشئ الاختبارات وحدد القسم والمدة.</p>
+
+        <form class="panel" id="examForm">
+            <h2 id="formTitle">إنشاء اختبار جديد</h2>
+
+            <label for="examTitle">اسم الاختبار</label>
+            <input id="examTitle" required placeholder="مثال: اختبار الوحدة الأولى">
+
+            <label for="examCategory">القسم</label>
+            <select id="examCategory" required>
+                <option value="">اختر القسم</option>
+                <option value="Vocabulary">Vocabulary - الكلمات</option>
+                <option value="Grammar">Grammar - القواعد</option>
+                <option value="Skills">Skills - المهارات</option>
+                <option value="Story">Story - القصة</option>
+                <option value="Foundation">Foundation - التأسيس</option>
+            </select>
+
+            <label for="examDescription">وصف الاختبار</label>
+            <textarea id="examDescription" rows="4" placeholder="اكتب وصفًا مختصرًا للاختبار"></textarea>
+
+            <label for="examDuration">مدة الاختبار بالدقائق</label>
+            <input id="examDuration" type="number" min="1" max="300" value="30" required>
+
+            <button class="save" type="submit">حفظ الاختبار</button>
+            <button class="edit" type="button" id="cancelEdit" hidden>
+                إلغاء التعديل
+            </button>
+
+            <p class="status" id="status"></p>
+        </form>
+
+        <h2>الاختبارات المضافة</h2>
+        <div id="examsList">جارٍ تحميل الاختبارات...</div>
+    </main>
+
+    <script type="module">
+        import { auth, db } from "./firebase.js";
+
+        import {
+            collection, addDoc, getDocs, doc,
+            updateDoc, deleteDoc, getDoc, serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+        import {
+            onAuthStateChanged
+        } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+        const form = document.getElementById("examForm");
+        const titleInput = document.getElementById("examTitle");
+        const categoryInput = document.getElementById("examCategory");
+        const descriptionInput = document.getElementById("examDescription");
+        const durationInput = document.getElementById("examDuration");
+        const list = document.getElementById("examsList");
+        const status = document.getElementById("status");
+        const cancelEdit = document.getElementById("cancelEdit");
+
+        let editingId = null;
+
+        onAuthStateChanged(auth, async user => {
+            if (!user) {
+                location.href = "login.html";
+                return;
+            }
+
+            try {
+                const profile = await getDoc(doc(db, "users", user.uid));
+
+                if (!profile.exists() || profile.data().role !== "admin") {
+                    alert("هذه الصفحة للأدمن فقط.");
+                    location.href = "index.html";
+                    return;
+                }
+
+                await loadExams();
+            } catch (error) {
+                status.textContent = "خطأ في التحقق من الصلاحيات: " + error.message;
+            }
+        });
+
+        async function loadExams() {
+            list.textContent = "جارٍ تحميل الاختبارات...";
+
+            try {
+                const snapshot = await getDocs(collection(db, "exams"));
+                list.replaceChildren();
+
+                if (snapshot.empty) {
+                    list.textContent = "لا توجد اختبارات حتى الآن.";
+                    return;
+                }
+
+                snapshot.forEach(item => {
+                    const data = item.data();
+                    const card = document.createElement("article");
+                    card.className = "exam-card";
+
+                    const title = document.createElement("h3");
+                    title.textContent = data.title || "اختبار بدون اسم";
+
+                    const category = document.createElement("p");
+                    category.textContent = "القسم: " + (data.category || "");
+
+                    const description = document.createElement("p");
+                    description.textContent = data.description || "";
+
+                    const duration = document.createElement("p");
+                    duration.textContent = "المدة: " + (data.durationMinutes || 30) + " دقيقة";
+
+                    const editButton = document.createElement("button");
+                    editButton.className = "edit";
+                    editButton.textContent = "تعديل";
+                    editButton.addEventListener("click", () => editExam(item.id, data));
+
+                    const deleteButton = document.createElement("button");
+                    deleteButton.className = "delete";
+                    deleteButton.textContent = "حذف";
+                    deleteButton.addEventListener("click", () => removeExam(item.id));
+
+                    const questionsButton = document.createElement("button");
+                    questionsButton.className = "save";
+                    questionsButton.textContent = "إدارة الأسئلة";
+
+                    questionsButton.addEventListener("click", () => {
+                        if (!item.id) {
+                            alert("لم يتم العثور على معرّف الاختبار.");
+                            return;
+                        }
+
+                        const target = new URL("questions.html", window.location.href);
+                        target.searchParams.set("examId", item.id);
+
+                        window.location.href = target.href;
+                    });
+
+                    card.append(
+                        title,
+                        category,
+                        description,
+                        duration,
+                        questionsButton,
+                        editButton,
+                        deleteButton
+                    );
+                    list.appendChild(card);
+                });
+            } catch (error) {
+                list.textContent = "خطأ في تحميل الاختبارات: " + error.message;
+            }
+        }
+
+        form.addEventListener("submit", async event => {
+            event.preventDefault();
+
+            const data = {
+                title: titleInput.value.trim(),
+                category: categoryInput.value,
+                description: descriptionInput.value.trim(),
+                durationMinutes: Number(durationInput.value),
+                updatedAt: serverTimestamp()
+            };
+
+            if (!data.title || !data.category || data.durationMinutes < 1) return;
+
+            try {
+                if (editingId) {
+                    await updateDoc(doc(db, "exams", editingId), data);
+                    status.textContent = "تم تعديل الاختبار.";
+                } else {
+                    await addDoc(collection(db, "exams"), {
+                        ...data,
+                        createdAt: serverTimestamp()
+                    });
+                    status.textContent = "تم إنشاء الاختبار بنجاح.";
+                }
+
+                resetForm();
+                await loadExams();
+            } catch (error) {
+                status.textContent = "حدث خطأ أثناء الحفظ: " + error.message;
+            }
+        });
+
+        function editExam(id, data) {
+            editingId = id;
+            titleInput.value = data.title || "";
+            categoryInput.value = data.category || "";
+            descriptionInput.value = data.description || "";
+            durationInput.value = data.durationMinutes || 30;
+
+            document.getElementById("formTitle").textContent = "تعديل الاختبار";
+            cancelEdit.hidden = false;
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        async function removeExam(id) {
+            if (!confirm("هل تريد حذف هذا الاختبار؟")) return;
+
+            try {
+                await deleteDoc(doc(db, "exams", id));
+                status.textContent = "تم حذف الاختبار.";
+                await loadExams();
+            } catch (error) {
+                status.textContent = "تعذر الحذف: " + error.message;
+            }
+        }
+
+        function resetForm() {
+            form.reset();
+            durationInput.value = 30;
+            editingId = null;
+            document.getElementById("formTitle").textContent = "إنشاء اختبار جديد";
+            cancelEdit.hidden = true;
+        }
+
+        cancelEdit.addEventListener("click", resetForm);
+    </script>
+</body>
+
+</html>

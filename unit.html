@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دروس الوحدة | English Academy</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0b1120;
+            color: #f1f5f9;
+        }
+
+        header {
+            padding: 20px 7%;
+            background: #121b2e;
+            border-bottom: 1px solid #263449;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+
+        main {
+            width: min(1000px, 90%);
+            margin: 40px auto;
+        }
+
+        .unit-header {
+            background: #121b2e;
+            border: 1px solid #263449;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .unit-header p {
+            color: #94a3b8;
+            line-height: 1.8;
+        }
+
+        #lessons {
+            display: grid;
+            gap: 18px;
+        }
+
+        .lesson {
+            background: #121b2e;
+            border: 1px solid #263449;
+            border-radius: 14px;
+            padding: 22px;
+        }
+
+        .lesson h2 {
+            margin-top: 0;
+            color: #38bdf8;
+        }
+
+        .lesson p {
+            color: #cbd5e1;
+            line-height: 1.9;
+            white-space: pre-wrap;
+        }
+
+        .lesson a {
+            display: inline-block;
+            margin: 8px 8px 0 0;
+            padding: 10px 15px;
+            background: #075985;
+            color: white;
+            border-radius: 8px;
+        }
+
+        .message {
+            background: #121b2e;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            color: #94a3b8;
+            line-height: 1.8;
+        }
+
+        .lesson-number {
+            color: #94a3b8;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 600px) {
+            header {
+                padding: 18px 5%;
+            }
+
+            main {
+                margin: 25px auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <strong>English Academy</strong>
+        <a href="course.html">← العودة للوحدات</a>
+    </header>
+
+    <main>
+        <section class="unit-header">
+            <h1 id="unitTitle">جارٍ تحميل الوحدة...</h1>
+            <p id="unitDescription"></p>
+        </section>
+
+        <section id="lessons">
+            <div class="message">جارٍ تحميل الدروس...</div>
+        </section>
+    </main>
+
+    <script type="module">
+        import { auth, db } from "./firebase.js";
+
+        import {
+            doc,
+            getDoc,
+            collection,
+            getDocs,
+            query,
+            where,
+
+        } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+        import { onAuthStateChanged } from
+            "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+        const unitTitle = document.getElementById("unitTitle");
+        const unitDescription = document.getElementById("unitDescription");
+        const lessonsContainer = document.getElementById("lessons");
+
+        const params = new URLSearchParams(window.location.search);
+        const unitId = params.get("unitId");
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.replace("login.html");
+                return;
+            }
+
+            if (!unitId) {
+                showMessage("لم يتم تحديد الوحدة المطلوبة.");
+                unitTitle.textContent = "الوحدة غير محددة";
+                return;
+            }
+
+            await loadUnit();
+        });
+
+        async function loadUnit() {
+            try {
+                const unitRef = doc(db, "units", unitId);
+                const unitSnapshot = await getDoc(unitRef);
+
+                if (!unitSnapshot.exists()) {
+                    unitTitle.textContent = "الوحدة غير موجودة";
+                    showMessage("هذه الوحدة غير موجودة أو تم حذفها.");
+                    return;
+                }
+
+                const unit = unitSnapshot.data();
+
+                unitTitle.textContent = unit.title || "الوحدة الدراسية";
+                unitDescription.textContent = unit.description || "";
+
+                await loadLessons();
+
+            } catch (error) {
+                console.error(error);
+                showMessage("حدث خطأ أثناء تحميل الوحدة. حاول مرة أخرى.");
+            }
+        }
+
+        async function loadLessons() {
+            try {
+                const lessonsQuery = query(
+                    collection(db, "lessons"),
+                    where("unitId", "==", unitId)
+                );
+
+                const snapshot = await getDocs(lessonsQuery);
+
+                if (snapshot.empty) {
+                    showMessage("لا توجد دروس مضافة لهذه الوحدة حتى الآن.");
+                    return;
+                }
+
+                lessonsContainer.innerHTML = "";
+
+                const sortedLessons = [...snapshot.docs].sort((a, b) => {
+                    return Number(a.data().number || 0) - Number(b.data().number || 0);
+                });
+
+                sortedLessons.forEach((lessonDoc) => {
+                    const lesson = lessonDoc.data();
+
+                    const card = document.createElement("article");
+                    card.className = "lesson";
+
+                    const number = document.createElement("div");
+                    number.className = "lesson-number";
+                    number.textContent = `الدرس ${lesson.number || ""}`;
+
+                    const title = document.createElement("h2");
+                    title.textContent = lesson.title || "درس بدون عنوان";
+
+                    const description = document.createElement("p");
+                    description.textContent = lesson.description || "";
+
+                    const lessonLink = document.createElement("a");
+
+                    lessonLink.href =
+                        `lesson.html?lessonId=${encodeURIComponent(lessonDoc.id)}`;
+
+                    lessonLink.textContent = "فتح الدرس";
+
+                    card.append(number, title, description, lessonLink);
+
+                    if (lesson.content) {
+                        const content = document.createElement("p");
+                        content.textContent = lesson.content;
+                        card.appendChild(content);
+                    }
+
+                    if (lesson.videoUrl) {
+                        const videoLink = createLink(
+                            lesson.videoUrl,
+                            "مشاهدة الفيديو"
+                        );
+                        card.appendChild(videoLink);
+                    }
+
+                    if (lesson.pdfUrl) {
+                        const pdfLink = createLink(
+                            lesson.pdfUrl,
+                            "تحميل ملف PDF"
+                        );
+                        card.appendChild(pdfLink);
+                    }
+
+                    lessonsContainer.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error(error);
+                showMessage("تعذر تحميل الدروس. راجع اتصال Firebase.");
+            }
+        }
+
+        function createLink(url, text) {
+            const link = document.createElement("a");
+            link.href = url;
+            link.textContent = text;
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            return link;
+        }
+
+        function showMessage(message) {
+            lessonsContainer.innerHTML = "";
+
+            const box = document.createElement("div");
+            box.className = "message";
+            box.textContent = message;
+
+            lessonsContainer.appendChild(box);
+        }
+    </script>
+
+</body>
+
+</html>

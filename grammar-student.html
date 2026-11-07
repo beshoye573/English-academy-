@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080f1e">
+  <title>Grammar | English Academy</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #080f1e;
+      color: #f1f5f9;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      padding: 18px 6%;
+      background: #121b2e;
+      border-bottom: 1px solid #263449;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    a { color: #38bdf8; text-decoration: none; }
+
+    main {
+      width: min(1000px, 92%);
+      margin: 35px auto;
+    }
+
+    h1 { font-size: 30px; }
+
+    .intro {
+      color: #94a3b8;
+      line-height: 1.9;
+    }
+
+    .toolbar { margin: 25px 0; }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      background: #121b2e;
+      color: white;
+      font-size: 15px;
+    }
+
+    .grammar-list {
+      display: grid;
+      gap: 17px;
+    }
+
+    .grammar-card {
+      padding: 22px;
+      background: #121b2e;
+      border: 1px solid #263449;
+      border-radius: 14px;
+    }
+
+    .grammar-card h2 {
+      color: #38bdf8;
+      margin-top: 0;
+      font-size: 23px;
+    }
+
+    .description {
+      color: #e2e8f0;
+      line-height: 2;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .example-box {
+      margin-top: 18px;
+      padding: 15px;
+      border-radius: 10px;
+      background: #080f1e;
+    }
+
+    .example-title {
+      color: #38bdf8;
+      margin-top: 0;
+    }
+
+    .examples {
+      direction: ltr;
+      text-align: left;
+      color: #dbeafe;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .translation {
+      color: #94a3b8;
+      line-height: 1.9;
+      white-space: pre-wrap;
+    }
+
+    .message {
+      padding: 25px;
+      background: #121b2e;
+      border: 1px solid #263449;
+      border-radius: 12px;
+      text-align: center;
+      color: #94a3b8;
+      line-height: 1.8;
+    }
+
+    footer {
+      text-align: center;
+      padding: 25px;
+      color: #64748b;
+    }
+
+    @media(max-width: 600px) {
+      main { margin: 22px auto; }
+      .grammar-card { padding: 17px; }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <strong>English Academy</strong>
+  <a href="dashboard.html">الصفحة الشخصية</a>
+</header>
+
+<main>
+
+  <h1>✍️ Grammar</h1>
+
+  <p class="intro">
+    تعلّم قواعد اللغة الإنجليزية من خلال الشرح والأمثلة والترجمة.
+  </p>
+
+  <div class="toolbar">
+    <input
+      type="search"
+      id="searchInput"
+      placeholder="ابحث عن قاعدة أو كلمة..."
+      autocomplete="off"
+    >
+  </div>
+
+  <section class="grammar-list" id="grammarList">
+    <div class="message">جارٍ تحميل القواعد...</div>
+  </section>
+
+</main>
+
+<footer>English Academy © 2026</footer>
+
+<script type="module">
+
+  import { auth, db } from "./firebase.js";
+
+  import {
+    collection,
+    getDocs
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+  import { onAuthStateChanged } from
+    "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+
+  const grammarList = document.getElementById("grammarList");
+  const searchInput = document.getElementById("searchInput");
+
+  let allGrammar = [];
+
+
+  onAuthStateChanged(auth, async (user) => {
+
+    if (!user) {
+      location.replace("login.html");
+      return;
+    }
+
+    await loadGrammar();
+
+  });
+
+
+  async function loadGrammar() {
+
+    try {
+
+      const snapshot = await getDocs(collection(db, "grammar"));
+
+      allGrammar = snapshot.docs.map((grammarDoc) => ({
+        id: grammarDoc.id,
+        ...grammarDoc.data()
+      }));
+
+      allGrammar.sort((a, b) =>
+        (a.title || "").localeCompare(b.title || "", "en")
+      );
+
+      displayGrammar(allGrammar);
+
+    } catch (error) {
+
+      console.error(error);
+
+      showMessage(
+        "تعذر تحميل القواعد. تأكد من اتصال Firebase وقواعد Firestore."
+      );
+
+    }
+
+  }
+
+
+  function displayGrammar(items) {
+
+    grammarList.innerHTML = "";
+
+    if (items.length === 0) {
+
+      showMessage(
+        allGrammar.length === 0
+          ? "لم تتم إضافة قواعد حتى الآن."
+          : "لا توجد نتائج مطابقة للبحث."
+      );
+
+      return;
+
+    }
+
+    items.forEach((item) => {
+
+      const card = document.createElement("article");
+      card.className = "grammar-card";
+
+      const title = document.createElement("h2");
+      title.textContent = item.title || "";
+
+      const description = document.createElement("div");
+      description.className = "description";
+      description.textContent = item.description || "";
+
+      card.append(title, description);
+
+      if (item.examples) {
+
+        const exampleBox = document.createElement("div");
+        exampleBox.className = "example-box";
+
+        const exampleTitle = document.createElement("h3");
+        exampleTitle.className = "example-title";
+        exampleTitle.textContent = "Examples";
+
+        const examples = document.createElement("div");
+        examples.className = "examples";
+        examples.textContent = item.examples;
+
+        exampleBox.append(exampleTitle, examples);
+        card.appendChild(exampleBox);
+
+      }
+
+      if (item.translation) {
+
+        const translation = document.createElement("div");
+        translation.className = "translation";
+        translation.textContent =
+          `ترجمة الأمثلة: ${item.translation}`;
+
+        card.appendChild(translation);
+
+      }
+
+      grammarList.appendChild(card);
+
+    });
+
+  }
+
+
+  function showMessage(message) {
+
+    const box = document.createElement("div");
+    box.className = "message";
+    box.textContent = message;
+
+    grammarList.innerHTML = "";
+    grammarList.appendChild(box);
+
+  }
+
+
+  searchInput.addEventListener("input", () => {
+
+    const query = searchInput.value.trim().toLowerCase();
+
+    const filtered = allGrammar.filter((item) => {
+
+      return (
+        (item.title || "").toLowerCase().includes(query) ||
+        (item.description || "").toLowerCase().includes(query) ||
+        (item.examples || "").toLowerCase().includes(query) ||
+        (item.translation || "").toLowerCase().includes(query)
+      );
+
+    });
+
+    displayGrammar(filtered);
+
+  });
+
+</script>
+
+</body>
+</html>

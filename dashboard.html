@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0b1120">
+    <title>لوحة الطالب | English Academy</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #0b1120;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            padding: 20px 6%;
+            background: #121b2e;
+            border-bottom: 1px solid #26364d;
+        }
+
+        .brand {
+            font-size: 21px;
+            font-weight: bold;
+            color: #38bdf8;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .home-link {
+            padding: 11px 16px;
+            border: 1px solid #334155;
+            border-radius: 9px;
+            color: #cbd5e1;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .logout {
+            padding: 11px 18px;
+            border: 0;
+            border-radius: 9px;
+            background: #ef4444;
+            color: white;
+            cursor: pointer;
+        }
+
+        main {
+            width: min(1100px, 90%);
+            margin: 35px auto;
+        }
+
+        .welcome {
+            padding: 30px;
+            border-radius: 18px;
+            background: linear-gradient(120deg, #164e63, #172554);
+            margin-bottom: 28px;
+        }
+
+        .welcome h1 {
+            margin-top: 0;
+        }
+
+        .welcome p {
+            color: #dbeafe;
+            line-height: 1.8;
+        }
+
+        .section-title {
+            margin: 35px 0 18px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 18px;
+        }
+
+        .course {
+            display: block;
+            padding: 23px;
+            background: #121b2e;
+            border: 1px solid #26364d;
+            border-radius: 15px;
+            transition: .2s;
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .course:hover {
+            border-color: #38bdf8;
+            transform: translateY(-3px);
+        }
+
+        .course .icon {
+            font-size: 30px;
+            margin-bottom: 15px;
+        }
+
+        .course h3 {
+            margin: 0 0 10px;
+        }
+
+        .course p {
+            color: #94a3b8;
+            line-height: 1.7;
+            font-size: 14px;
+            min-height: 48px;
+        }
+
+        .course .course-link {
+            display: inline-block;
+            margin-top: 10px;
+            color: #38bdf8;
+            font-size: 14px;
+        }
+
+        .progress {
+            padding: 22px;
+            margin-top: 25px;
+            background: #121b2e;
+            border: 1px solid #26364d;
+            border-radius: 15px;
+        }
+
+        .progress p {
+            color: #94a3b8;
+            line-height: 1.7;
+        }
+
+        .progress-bar {
+            height: 10px;
+            margin-top: 15px;
+            background: #334155;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #06b6d4;
+        }
+
+        .exams-section {
+            margin-top: 35px;
+            padding: 25px;
+            border: 1px solid #164e63;
+            border-radius: 16px;
+            background: linear-gradient(120deg, #10283b, #172554);
+        }
+
+        .exams-section p {
+            color: #cbd5e1;
+            line-height: 1.8;
+        }
+
+        .exam-link {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 12px 20px;
+            border-radius: 9px;
+            background: #0284c7;
+            color: white;
+            text-decoration: none;
+            transition: .2s;
+        }
+
+        .exam-link:hover {
+            background: #0369a1;
+        }
+
+        #status {
+            text-align: center;
+            padding: 35px;
+            color: #94a3b8;
+        }
+
+        @media (max-width: 550px) {
+            header {
+                padding: 16px 5%;
+            }
+
+            .brand {
+                font-size: 17px;
+            }
+
+            .header-actions {
+                gap: 6px;
+            }
+
+            .home-link,
+            .logout {
+                padding: 9px 11px;
+                font-size: 12px;
+            }
+
+            main {
+                width: 92%;
+            }
+
+            .welcome {
+                padding: 22px;
+            }
+
+            .exams-section {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="brand">English Academy</div>
+
+        <div class="header-actions">
+            <a href="index.html" class="home-link">الرئيسية</a>
+            <button class="logout" id="logoutButton">تسجيل الخروج</button>
+        </div>
+    </header>
+
+    <main id="dashboard" hidden>
+
+        <!-- WELCOME -->
+        <section class="welcome">
+            <h1>
+                أهلاً بك، <span id="studentName">الطالب</span> 👋
+            </h1>
+
+            <p>
+                استعد لمواصلة رحلتك في تعلم اللغة الإنجليزية.
+                اختر القسم الذي تريد البدء فيه.
+            </p>
+        </section>
+
+
+        <!-- PROGRESS -->
+        <section class="progress">
+            <h3>تقدمك التعليمي</h3>
+
+            <p>
+                لم يتم تفعيل نظام تسجيل التقدم التعليمي بعد.
+                ستظهر إحصائيات تقدمك هنا عند تفعيله.
+            </p>
+
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+        </section>
+
+
+        <!-- EDUCATIONAL SECTIONS -->
+        <h2 class="section-title">الأقسام التعليمية</h2>
+
+        <section class="grid">
+
+            <a href="vocabulary-student.html" class="course">
+                <div class="icon">📚</div>
+                <h3>Vocabulary</h3>
+                <p>تعلم الكلمات ومعانيها وأمثلتها ونطقها.</p>
+                <span class="course-link">دخول القسم ←</span>
+            </a>
+
+            <a href="grammar-student.html" class="course">
+                <div class="icon">✍️</div>
+                <h3>Grammar</h3>
+                <p>تعلم قواعد اللغة الإنجليزية وتدرب عليها.</p>
+                <span class="course-link">دخول القسم ←</span>
+            </a>
+
+            <a href="skills-student.html" class="course">
+                <div class="icon">🎯</div>
+                <h3>Skills</h3>
+                <p>طور مهاراتك اللغوية من خلال الشرح والتدريبات.</p>
+                <span class="course-link">دخول القسم ←</span>
+            </a>
+
+            <a href="story-student.html" class="course">
+                <div class="icon">📖</div>
+                <h3>Story</h3>
+                <p>ادرس القصة وتابع أحداثها وشخصياتها.</p>
+                <span class="course-link">دخول القسم ←</span>
+            </a>
+
+            <a href="foundation-student.html" class="course">
+                <div class="icon">📘</div>
+                <h3>Foundation</h3>
+                <p>ابدأ تأسيس اللغة الإنجليزية من الصفر.</p>
+                <span class="course-link">ابدأ التعلم ←</span>
+            </a>
+
+        </section>
+
+
+        <!-- EXAMS -->
+        <section class="exams-section">
+
+            <h2>🎯 الاختبارات الإلكترونية</h2>
+
+            <p>
+                اختبر مستواك من خلال الاختبارات التي يضيفها الأدمن،
+                وتابع نتائجك بعد الانتهاء من الحل.
+            </p>
+
+            <a href="exams-student.html" class="exam-link">
+                عرض الاختبارات ←
+            </a>
+
+        </section>
+
+    </main>
+
+
+    <div id="status">جاري التحقق من حسابك...</div>
+
+
+    <!-- FIREBASE AUTHENTICATION -->
+    <script type="module">
+
+        import { auth, db } from "./firebase.js";
+
+        import {
+            onAuthStateChanged,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+        import {
+            doc,
+            getDoc
+        } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+
+        const dashboard = document.getElementById("dashboard");
+        const status = document.getElementById("status");
+        const studentName = document.getElementById("studentName");
+
+
+        onAuthStateChanged(auth, async (user) => {
+
+            if (!user) {
+                window.location.replace("login.html");
+                return;
+            }
+
+            try {
+
+                const snapshot = await getDoc(
+                    doc(db, "users", user.uid)
+                );
+
+                if (!snapshot.exists()) {
+                    await signOut(auth);
+                    window.location.replace("login.html");
+                    return;
+                }
+
+                const data = snapshot.data();
+
+                if (data.role !== "student") {
+                    window.location.replace(
+                        data.role === "admin" ? "admin.html" : "index.html"
+                    );
+                    return;
+                }
+
+                studentName.textContent =
+                    data.name || user.displayName || "الطالب";
+
+                status.hidden = true;
+                dashboard.hidden = false;
+
+            } catch (error) {
+
+                console.error(error);
+
+                status.textContent =
+                    "تعذر تحميل بيانات حسابك. حاول مرة أخرى.";
+
+            }
+
+        });
+
+
+        document.getElementById("logoutButton")
+            .addEventListener("click", async () => {
+
+                try {
+
+                    await signOut(auth);
+                    window.location.replace("login.html");
+
+                } catch (error) {
+
+                    console.error(error);
+                    alert("تعذر تسجيل الخروج. حاول مرة أخرى.");
+
+                }
+
+            });
+
+    </script>
+
+</body>
+</html>

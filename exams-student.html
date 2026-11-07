@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080f1e">
+  <title>الاختبارات | English Academy</title>
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--background, #080f1e);
+      color: white;
+    }
+
+    .page {
+      width: min(1000px, 94%);
+      margin: 35px auto;
+    }
+
+    .panel, .exam-card, .question-card {
+      background: var(--surface, #121b2e);
+      border: 1px solid #26354d;
+      border-radius: 14px;
+      padding: 20px;
+      margin: 18px 0;
+    }
+
+    .exam-card h3 { color: #38bdf8; }
+    .muted { color: #94a3b8; }
+
+    .btn {
+      border: 0;
+      border-radius: 9px;
+      padding: 12px 20px;
+      margin: 5px;
+      cursor: pointer;
+      font: inherit;
+      background: #2563eb;
+      color: white;
+    }
+
+    .btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    .secondary { background: #475569; }
+
+    .answer-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      margin: 9px 0;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+
+    .answer-option input {
+      width: auto;
+      margin: 0;
+      accent-color: #38bdf8;
+    }
+
+    .answer-option:has(input:checked) {
+      border-color: #38bdf8;
+      background: #172b43;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 9px;
+      border: 1px solid #475569;
+      background: #0b1120;
+      color: white;
+      font: inherit;
+      resize: vertical;
+    }
+
+    .timer {
+      position: sticky;
+      top: 10px;
+      z-index: 5;
+      background: #172b43;
+      border: 1px solid #38bdf8;
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+      margin: 15px 0;
+    }
+
+    .hidden { display: none !important; }
+
+    .status {
+      margin: 15px 0;
+      line-height: 1.8;
+    }
+
+    .question-number {
+      color: #38bdf8;
+      font-weight: bold;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 30px 15px;
+      color: #94a3b8;
+    }
+
+    .waiting {
+      color: #fbbf24;
+      font-weight: bold;
+    }
+
+    .success { color: #4ade80; }
+    .error { color: #f87171; }
+
+    .grade-number {
+      color: #38bdf8;
+      font-size: 32px;
+      font-weight: bold;
+      margin: 15px 0;
+    }
+
+    .result-note {
+      background: #172b43;
+      border-radius: 10px;
+      padding: 15px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+
+  <main class="page">
+
+    <a href="dashboard.html">← العودة إلى لوحة الطالب</a>
+
+    <header>
+      <h1>الاختبارات الإلكترونية</h1>
+      <p class="muted">اختبر مستواك وتابع نتائجك في English Academy.</p>
+    </header>
+
+    <p id="status" class="status"></p>
+
+    <section id="examsSection">
+      <h2>الاختبارات المتاحة</h2>
+      <div id="examsList">جارٍ تحميل الاختبارات...</div>
+    </section>
+
+    <section id="examSection" class="hidden">
+
+      <div class="panel">
+        <button class="btn secondary" id="backButton">
+          العودة إلى الاختبارات
+        </button>
+
+        <h2 id="activeExamTitle"></h2>
+        <p id="activeExamDescription" class="muted"></p>
+        <p id="questionCount" class="muted"></p>
+      </div>
+
+      <div class="timer">
+        الوقت المتبقي:
+        <span id="timer">00:00</span>
+      </div>
+
+      <form id="answersForm">
+        <div id="questionsContainer"></div>
+
+        <button type="submit" class="btn" id="submitButton">
+          تسليم الاختبار
+        </button>
+      </form>
+
+    </section>
+
+    <section id="resultSection" class="panel hidden">
+      <h2 id="resultTitle">تم تسليم الاختبار</h2>
+
+      <div id="resultContent"></div>
+
+      <button class="btn" id="returnButton">
+        العودة إلى الاختبارات
+      </button>
+    </section>
+
+  </main>
+
+  <script type="module">
+
+    import { auth, db } from "./firebase.js";
+
+    import {
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    import {
+      collection,
+      getDocs,
+      getDoc,
+      doc,
+      query,
+      where,
+      addDoc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+
+    // عناصر الصفحة
+    const status = document.getElementById("status");
+
+    const examsSection = document.getElementById("examsSection");
+    const examSection = document.getElementById("examSection");
+    const resultSection = document.getElementById("resultSection");
+
+    const examsList = document.getElementById("examsList");
+    const questionsContainer = document.getElementById("questionsContainer");
+    const answersForm = document.getElementById("answersForm");
+
+    const timerElement = document.getElementById("timer");
+    const submitButton = document.getElementById("submitButton");
+
+    const activeExamTitle = document.getElementById("activeExamTitle");
+    const activeExamDescription = document.getElementById("activeExamDescription");
+    const questionCount = document.getElementById("questionCount");
+
+    const resultTitle = document.getElementById("resultTitle");
+    const resultContent = document.getElementById("resultContent");
+
+
+    // بيانات التشغيل
+    let currentUser = null;
+    let currentExam = null;
+    let currentQuestions = [];
+    let studentSubmissions = {};
+
+    let timerInterval = null;
+    let remainingSeconds = 0;
+
+    let examStarted = false;
+    let submitting = false;
+
+
+    function showStatus(text, error = false) {
+      status.textContent = text;
+      status.style.color = error ? "#f87171" : "#4ade80";
+    }
+
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remaining = seconds % 60;
+
+      return (
+        String(minutes).padStart(2, "0") +
+        ":" +
+        String(remaining).padStart(2, "0")
+      );
+    }
+
+
+    function startTimer(minutes) {
+      stopTimer();
+
+      remainingSeconds = minutes * 60;
+      timerElement.textContent = formatTime(remainingSeconds);
+
+      timerInterval = setInterval(async () => {
+        remainingSeconds--;
+
+        timerElement.textContent = formatTime(
+          Math.max(remainingSeconds, 0)
+        );
+
+        if (remainingSeconds <= 0) {
+          stopTimer();
+          alert("انتهى وقت الاختبار. سيتم تسليم إجاباتك الآن.");
+          await submitExam();
+        }
+
+      }, 1000);
+    }
+
+
+    // تحميل تسليمات الطالب
+    async function loadStudentSubmissions() {
+
+      const q = query(
+        collection(db, "exam_submissions"),
+        where("studentId", "==", currentUser.uid)
+      );
+
+      const snapshot = await getDocs(q);
+
+      studentSubmissions = {};
+
+      snapshot.forEach(item => {
+        const data = item.data();
+
+        const previous = studentSubmissions[data.examId];
+
+        const newTime = data.submittedAt?.toMillis?.() || 0;
+        const oldTime = previous?.submittedAt?.toMillis?.() || 0;
+
+        if (!previous || newTime >= oldTime) {
+          studentSubmissions[data.examId] = {
+            id: item.id,
+            ...data
+          };
+        }
+      });
+    }
+
+
+    // تحميل الاختبارات
+    async function loadExams() {
+
+      examsList.textContent = "جارٍ تحميل الاختبارات...";
+
+      try {
+
+        await loadStudentSubmissions();
+
+        const snapshot = await getDocs(
+          collection(db, "exams")
+        );
+
+        examsList.replaceChildren();
+
+        if (snapshot.empty) {
+          examsList.innerHTML =
+            '<div class="empty">لا توجد اختبارات متاحة حاليًا.</div>';
+          return;
+        }
+
+        snapshot.forEach(item => {
+
+          const data = item.data();
+          const submission = studentSubmissions[item.id];
+
+          const card = document.createElement("article");
+          card.className = "exam-card";
+
+          const title = document.createElement("h3");
+          title.textContent = data.title || "اختبار بدون اسم";
+
+          const category = document.createElement("p");
+          category.textContent =
+            "القسم: " + (data.category || "غير محدد");
+
+          const description = document.createElement("p");
+          description.textContent =
+            data.description || "لا يوجد وصف لهذا الاختبار.";
+
+          const duration = document.createElement("p");
+          duration.textContent =
+            "المدة: " + (data.durationMinutes || 30) + " دقيقة";
+
+          card.append(title, category, description, duration);
+
+          const actionButton = document.createElement("button");
+          actionButton.className = "btn";
+
+          if (submission) {
+
+            if (submission.status === "graded") {
+              actionButton.textContent = "عرض النتيجة";
+              actionButton.addEventListener("click", () => {
+                showSubmissionResult(submission);
+              });
+
+              const state = document.createElement("p");
+              state.className = "success";
+              state.textContent = "تم تصحيح الاختبار واعتماد الدرجة.";
+              card.appendChild(state);
+
+            } else {
+              actionButton.textContent = "في انتظار التصحيح";
+              actionButton.disabled = true;
+
+              const state = document.createElement("p");
+              state.className = "waiting";
+              state.textContent = "تم تسليم الاختبار، والأدمن لم يعتمد النتيجة بعد.";
+              card.appendChild(state);
+            }
+
+          } else {
+
+            actionButton.textContent = "ابدأ الاختبار";
+
+            actionButton.addEventListener("click", () => {
+              startExam(item.id, data);
+            });
+
+          }
+
+          card.appendChild(actionButton);
+          examsList.appendChild(card);
+
+        });
+
+      } catch (error) {
+
+        console.error(error);
+
+        examsList.textContent =
+          "حدث خطأ أثناء تحميل الاختبارات.";
+
+        showStatus(error.message, true);
+      }
+    }
+
+
+    // عرض نتيجة الطالب
+    function showSubmissionResult(submission) {
+
+      stopTimer();
+
+      examsSection.classList.add("hidden");
+      examSection.classList.add("hidden");
+      resultSection.classList.remove("hidden");
+
+      if (submission.status !== "graded") {
+        resultTitle.textContent = "الاختبار في انتظار التصحيح";
+
+        resultContent.textContent =
+          "تم تسليم إجاباتك بنجاح. انتظر حتى يراجع الأدمن إجاباتك ويعتمد النتيجة.";
+
+      } else {
+
+        resultTitle.textContent = "نتيجة الاختبار";
+
+        resultContent.replaceChildren();
+
+        const grade = document.createElement("div");
+        grade.className = "grade-number";
+        grade.textContent =
+          `${submission.grade} / ${submission.maxScore}`;
+
+        const label = document.createElement("p");
+        label.className = "success";
+        label.textContent = "تم اعتماد نتيجتك بواسطة الأدمن.";
+
+        const feedbackTitle = document.createElement("h3");
+        feedbackTitle.textContent = "ملاحظات الأدمن";
+
+        const feedback = document.createElement("div");
+        feedback.className = "result-note";
+        feedback.textContent =
+          submission.feedback || "لا توجد ملاحظات إضافية.";
+
+        resultContent.append(
+          grade,
+          label,
+          feedbackTitle,
+          feedback
+        );
+      }
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+
+    // بدء اختبار
+    async function startExam(examId, examData) {
+
+      if (examStarted || submitting) return;
+
+      if (studentSubmissions[examId]) {
+        showStatus("لقد سلّمت هذا الاختبار بالفعل.", true);
+        return;
+      }
+
+      showStatus("جارٍ تحميل أسئلة الاختبار...");
+
+      try {
+
+        const questionsQuery = query(
+          collection(db, "exam_public_questions"),
+          where("examId", "==", examId)
+        );
+
+        const snapshot = await getDocs(questionsQuery);
+
+        currentQuestions = snapshot.docs.map(item => ({
+          id: item.id,
+          ...item.data()
+        }));
+
+        currentQuestions.sort(
+          (a, b) => (a.order || 0) - (b.order || 0)
+        );
+
+        if (currentQuestions.length === 0) {
+          showStatus(
+            "هذا الاختبار لا يحتوي على أسئلة متاحة حتى الآن.",
+            true
+          );
+          return;
+        }
+
+        currentExam = {
+          id: examId,
+          ...examData
+        };
+
+        activeExamTitle.textContent =
+          examData.title || "الاختبار";
+
+        activeExamDescription.textContent =
+          examData.description || "";
+
+        questionCount.textContent =
+          "عدد الأسئلة: " + currentQuestions.length;
+
+        renderQuestions();
+
+        examsSection.classList.add("hidden");
+        resultSection.classList.add("hidden");
+        examSection.classList.remove("hidden");
+
+        examStarted = true;
+
+        const duration = Number(examData.durationMinutes) || 30;
+        startTimer(duration);
+
+        showStatus("");
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+
+      } catch (error) {
+
+        console.error(error);
+
+        showStatus(
+          "تعذر تحميل أسئلة الاختبار. تأكد من صلاحيات Firestore.",
+          true
+        );
+      }
+    }
+
+
+    // عرض الأسئلة
+    function renderQuestions() {
+
+      questionsContainer.replaceChildren();
+
+      currentQuestions.forEach((question, index) => {
+
+        const card = document.createElement("article");
+        card.className = "question-card";
+
+        const heading = document.createElement("h3");
+
+        const number = document.createElement("span");
+        number.className = "question-number";
+        number.textContent = `السؤال ${index + 1}: `;
+
+        const text = document.createElement("span");
+        text.textContent = question.text || "";
+
+        heading.append(number, text);
+
+        const points = document.createElement("p");
+        points.className = "muted";
+        points.textContent = "الدرجة: " + (question.points || 1);
+
+        card.append(heading, points);
+
+        const answerName = "answer_" + question.id;
+
+        if (question.type === "mcq") {
+
+          (question.options || []).forEach((option, optionIndex) => {
+
+            const label = document.createElement("label");
+            label.className = "answer-option";
+
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = answerName;
+            input.value = String(optionIndex);
+
+            const optionText = document.createElement("span");
+            optionText.textContent = option;
+
+            label.append(input, optionText);
+            card.appendChild(label);
+
+          });
+
+        } else if (question.type === "true_false") {
+
+          ["صح", "خطأ"].forEach((answer, index) => {
+
+            const label = document.createElement("label");
+            label.className = "answer-option";
+
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = answerName;
+            input.value = index === 0 ? "true" : "false";
+
+            const answerText = document.createElement("span");
+            answerText.textContent = answer;
+
+            label.append(input, answerText);
+            card.appendChild(label);
+
+          });
+
+        } else if (question.type === "essay") {
+
+          const textarea = document.createElement("textarea");
+          textarea.name = answerName;
+          textarea.placeholder = "اكتب إجابتك هنا...";
+
+          card.appendChild(textarea);
+        }
+
+        questionsContainer.appendChild(card);
+      });
+    }
+
+
+    // جمع إجابات الطالب
+    function collectAnswers() {
+
+      const answers = {};
+
+      currentQuestions.forEach(question => {
+
+        const name = "answer_" + question.id;
+
+        if (
+          question.type === "mcq" ||
+          question.type === "true_false"
+        ) {
+
+          const selected = answersForm.querySelector(
+            `input[name="${name}"]:checked`
+          );
+
+          answers[question.id] = selected
+            ? selected.value
+            : "";
+
+        } else if (question.type === "essay") {
+
+          const textarea = answersForm.querySelector(
+            `textarea[name="${name}"]`
+          );
+
+          answers[question.id] = textarea
+            ? textarea.value.trim()
+            : "";
+        }
+
+      });
+
+      return answers;
+    }
+
+
+    // تسليم الاختبار
+    async function submitExam() {
+
+      if (!examStarted || submitting || !currentExam) {
+        return;
+      }
+
+      const confirmed = remainingSeconds > 0
+        ? confirm("هل تريد تسليم الاختبار الآن؟ لن تستطيع تعديل إجاباتك بعد التسليم.")
+        : true;
+
+      if (!confirmed) return;
+
+      submitting = true;
+
+      submitButton.disabled = true;
+      stopTimer();
+
+      showStatus("جارٍ حفظ إجاباتك...");
+
+      try {
+
+        const answers = collectAnswers();
+
+        const submissionRef = await addDoc(
+          collection(db, "exam_submissions"),
+          {
+            studentId: currentUser.uid,
+            examId: currentExam.id,
+            answers,
+            submittedAt: serverTimestamp()
+          }
+        );
+
+        const submission = {
+          id: submissionRef.id,
+          studentId: currentUser.uid,
+          examId: currentExam.id,
+          answers,
+          status: "pending"
+        };
+
+        studentSubmissions[currentExam.id] = submission;
+
+        examSection.classList.add("hidden");
+        resultSection.classList.remove("hidden");
+
+        resultTitle.textContent = "تم تسليم الاختبار بنجاح";
+
+        resultContent.textContent =
+          "تم حفظ إجاباتك. الاختبار الآن في انتظار مراجعة الأدمن واعتماد درجتك.";
+
+        showStatus("تم تسليم الاختبار بنجاح.");
+
+        examStarted = false;
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+
+      } catch (error) {
+
+        console.error(error);
+
+        submitting = false;
+        submitButton.disabled = false;
+
+        showStatus(
+          "تعذر حفظ إجاباتك. حاول مرة أخرى. " + error.message,
+          true
+        );
+      }
+    }
+
+
+    answersForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      await submitExam();
+    });
+
+
+    // العودة إلى قائمة الاختبارات
+    async function returnToExams() {
+
+      stopTimer();
+
+      currentExam = null;
+      currentQuestions = [];
+
+      examStarted = false;
+      submitting = false;
+
+      submitButton.disabled = false;
+
+      answersForm.reset();
+      questionsContainer.replaceChildren();
+
+      examSection.classList.add("hidden");
+      resultSection.classList.add("hidden");
+      examsSection.classList.remove("hidden");
+
+      showStatus("");
+
+      await loadExams();
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+
+    document.getElementById("backButton").addEventListener(
+      "click",
+      () => {
+
+        if (examStarted) {
+
+          const confirmed = confirm(
+            "هل تريد الخروج؟ لن يتم حفظ إجاباتك إذا خرجت قبل التسليم."
+          );
+
+          if (!confirmed) return;
+        }
+
+        returnToExams();
+      }
+    );
+
+
+    document.getElementById("returnButton").addEventListener(
+      "click",
+      returnToExams
+    );
+
+
+    // التحقق من الحساب
+    onAuthStateChanged(auth, async user => {
+
+      if (!user) {
+        location.href = "login.html";
+        return;
+      }
+
+      try {
+
+        const profile = await getDoc(
+          doc(db, "users", user.uid)
+        );
+
+        if (
+          !profile.exists() ||
+          profile.data().role !== "student"
+        ) {
+          alert("هذه الصفحة مخصصة للطلاب فقط.");
+          location.href = "index.html";
+          return;
+        }
+
+        currentUser = user;
+
+        await loadExams();
+
+      } catch (error) {
+console.error(error);
+
+        showStatus(
+          "تعذر التحقق من حسابك أو تحميل الاختبارات: " + error.message,
+          true
+        );
+      }
+
+    });
+
+  </script>
+
+</body>
+</html>

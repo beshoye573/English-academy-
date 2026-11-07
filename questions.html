@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة أسئلة الاختبار</title>
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .questions-page {
+      width: min(950px, 94%);
+      margin: 35px auto;
+    }
+    .panel {
+      background: var(--surface, #121b2e);
+      padding: 22px;
+      border-radius: 14px;
+      margin: 20px 0;
+    }
+    .panel input, .panel textarea, .panel select {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0 15px;
+      border-radius: 8px;
+      border: 1px solid #475569;
+      background: #0b1120;
+      color: white;
+      box-sizing: border-box;
+    }
+    .panel label { display: block; }
+    .btn {
+      padding: 11px 18px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 5px;
+      color: white;
+      background: #2563eb;
+    }
+    .delete { background: #dc2626; }
+    .edit { background: #64748b; }
+    .question-card {
+      border: 1px solid #334155;
+      padding: 16px;
+      border-radius: 10px;
+      margin: 12px 0;
+    }
+    .muted { color: #94a3b8; }
+    .hidden { display: none; }
+    #message { margin: 12px 0; }
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="questions-page">
+    <a href="exams.html">← الرجوع إلى الاختبارات</a>
+
+    <h1>إدارة أسئلة الاختبار</h1>
+    <p id="examTitle" class="muted">جارٍ تحميل الاختبار...</p>
+    <p id="message"></p>
+
+    <section class="panel">
+      <h2 id="formTitle">إضافة سؤال جديد</h2>
+
+      <form id="questionForm">
+        <label for="questionType">نوع السؤال</label>
+        <select id="questionType" required>
+          <option value="mcq">اختيار من متعدد</option>
+          <option value="true_false">صح أم خطأ</option>
+          <option value="essay">سؤال مقالي</option>
+        </select>
+
+        <label for="questionText">نص السؤال</label>
+        <textarea id="questionText" rows="3" required
+          placeholder="اكتب السؤال هنا"></textarea>
+
+        <div id="mcqFields">
+          <label>الاختيار الأول</label>
+          <input id="option1" type="text">
+
+          <label>الاختيار الثاني</label>
+          <input id="option2" type="text">
+
+          <label>الاختيار الثالث</label>
+          <input id="option3" type="text">
+
+          <label>الاختيار الرابع</label>
+          <input id="option4" type="text">
+
+          <label for="correctAnswer">الإجابة الصحيحة</label>
+          <select id="correctAnswer">
+            <option value="0">الاختيار الأول</option>
+            <option value="1">الاختيار الثاني</option>
+            <option value="2">الاختيار الثالث</option>
+            <option value="3">الاختيار الرابع</option>
+          </select>
+        </div>
+
+        <div id="trueFalseFields" class="hidden">
+          <label for="trueFalseAnswer">الإجابة الصحيحة</label>
+          <select id="trueFalseAnswer">
+            <option value="true">صح</option>
+            <option value="false">خطأ</option>
+          </select>
+        </div>
+
+        <div id="essayFields" class="hidden">
+          <p class="muted">
+            السؤال المقالي تتم مراجعته وتصحيحه يدويًا من الأدمن.
+          </p>
+        </div>
+
+        <label for="points">درجة السؤال</label>
+        <input id="points" type="number" min="1" value="1" required>
+
+        <button class="btn" type="submit" id="saveButton">
+          حفظ السؤال
+        </button>
+
+        <button class="btn edit hidden" type="button" id="cancelEdit">
+          إلغاء التعديل
+        </button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>أسئلة الاختبار</h2>
+      <div id="questionsList">جارٍ تحميل الأسئلة...</div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+
+    import {
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    import {
+      collection,
+      getDocs,
+      getDoc,
+      doc,
+      query,
+      where,
+      serverTimestamp,
+      writeBatch
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    const params = new URLSearchParams(location.search);
+    const examId = params.get("examId");
+
+    const examTitle = document.getElementById("examTitle");
+    const message = document.getElementById("message");
+    const form = document.getElementById("questionForm");
+    const questionType = document.getElementById("questionType");
+    const mcqFields = document.getElementById("mcqFields");
+    const trueFalseFields = document.getElementById("trueFalseFields");
+    const essayFields = document.getElementById("essayFields");
+    const questionsList = document.getElementById("questionsList");
+    const saveButton = document.getElementById("saveButton");
+    const cancelEdit = document.getElementById("cancelEdit");
+
+    let editingId = null;
+    let editingOrder = null;
+    let editingCreatedAt = null;
+    let questionOrder = 0;
+    let allowed = false;
+    let saving = false;
+
+    function showMessage(text, error = false) {
+      message.textContent = text;
+      message.style.color = error ? "#f87171" : "#4ade80";
+    }
+
+    function updateQuestionFields() {
+      const type = questionType.value;
+
+      mcqFields.classList.toggle("hidden", type !== "mcq");
+      trueFalseFields.classList.toggle("hidden", type !== "true_false");
+      essayFields.classList.toggle("hidden", type !== "essay");
+    }
+
+    questionType.addEventListener("change", updateQuestionFields);
+
+    function resetForm() {
+      form.reset();
+
+      editingId = null;
+      editingOrder = null;
+      editingCreatedAt = null;
+
+      questionType.value = "mcq";
+      document.getElementById("points").value = 1;
+
+      saveButton.textContent = "حفظ السؤال";
+      document.getElementById("formTitle").textContent = "إضافة سؤال جديد";
+
+      cancelEdit.classList.add("hidden");
+      updateQuestionFields();
+    }
+
+    cancelEdit.addEventListener("click", resetForm);
+
+    function readQuestionData() {
+      const type = questionType.value;
+      const text = document.getElementById("questionText").value.trim();
+      const points = Number(document.getElementById("points").value);
+
+      if (!text) {
+        throw new Error("اكتب نص السؤال.");
+      }
+
+      if (!Number.isInteger(points) || points < 1) {
+        throw new Error("درجة السؤال يجب أن تكون رقمًا صحيحًا أكبر من صفر.");
+      }
+
+      const data = {
+        examId,
+        type,
+        text,
+        points,
+        order: editingId ? editingOrder : questionOrder,
+        updatedAt: serverTimestamp()
+      };
+
+      if (type === "mcq") {
+        const options = [1, 2, 3, 4].map(number =>
+          document.getElementById("option" + number).value.trim()
+        );
+
+        if (options.some(option => !option)) {
+          throw new Error("اكتب الاختيارات الأربعة.");
+        }
+
+        data.options = options;
+        data.correctAnswer = Number(
+          document.getElementById("correctAnswer").value
+        );
+      }
+
+      if (type === "true_false") {
+        data.correctAnswer =
+          document.getElementById("trueFalseAnswer").value === "true";
+
+        data.options = ["صح", "خطأ"];
+      }
+
+      if (type === "essay") {
+        data.options = [];
+        data.correctAnswer = null;
+      }
+
+      return data;
+    }
+
+    // إنشاء نسخة عامة لا تحتوي على الإجابة الصحيحة.
+    function createPublicQuestion(data) {
+      return {
+        examId: data.examId,
+        type: data.type,
+        text: data.text,
+        points: data.points,
+        order: data.order,
+        options: data.options || [],
+        updatedAt: serverTimestamp()
+      };
+    }
+
+    async function loadQuestions() {
+      questionsList.textContent = "جارٍ تحميل الأسئلة...";
+
+      try {
+        const q = query(
+          collection(db, "questions"),
+          where("examId", "==", examId)
+        );
+
+        const snapshot = await getDocs(q);
+
+        const questions = snapshot.docs.map(item => ({
+          id: item.id,
+          ...item.data()
+        }));
+
+        questions.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        questionOrder = questions.length;
+
+        questionsList.replaceChildren();
+
+        if (questions.length === 0) {
+          questionsList.textContent = "لا توجد أسئلة حتى الآن.";
+          return;
+        }
+
+        questions.forEach((item, index) => {
+          const card = document.createElement("article");
+          card.className = "question-card";
+
+          const title = document.createElement("h3");
+          title.textContent = `${index + 1}. ${item.text}`;
+
+          const type = document.createElement("p");
+
+          const types = {
+            mcq: "اختيار من متعدد",
+            true_false: "صح أم خطأ",
+            essay: "مقالي"
+          };
+
+          type.textContent = "النوع: " + (types[item.type] || "غير معروف");
+
+          const points = document.createElement("p");
+          points.textContent = "الدرجة: " + item.points;
+
+          card.append(title, type, points);
+
+          if (item.options?.length) {
+            const options = document.createElement("p");
+            options.textContent =
+              "الاختيارات: " + item.options.join(" | ");
+
+            card.append(options);
+          }
+
+          const editButton = document.createElement("button");
+          editButton.className = "btn edit";
+          editButton.textContent = "تعديل";
+          editButton.addEventListener("click", () => editQuestion(item));
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "btn delete";
+          deleteButton.textContent = "حذف";
+          deleteButton.addEventListener("click", () => removeQuestion(item.id));
+
+          card.append(editButton, deleteButton);
+          questionsList.append(card);
+        });
+
+      } catch (error) {
+        console.error(error);
+        questionsList.textContent = "حدث خطأ أثناء تحميل الأسئلة.";
+      }
+    }
+
+    function editQuestion(item) {
+      editingId = item.id;
+      editingOrder = item.order ?? 0;
+      editingCreatedAt = item.createdAt || null;
+
+      questionType.value = item.type;
+      document.getElementById("questionText").value = item.text || "";
+      document.getElementById("points").value = item.points || 1;
+
+      if (item.type === "mcq") {
+        (item.options || []).forEach((option, index) => {
+          document.getElementById("option" + (index + 1)).value = option;
+        });
+
+        document.getElementById("correctAnswer").value =
+          String(item.correctAnswer ?? 0);
+      }
+
+      if (item.type === "true_false") {
+        document.getElementById("trueFalseAnswer").value =
+          String(item.correctAnswer);
+      }
+
+      updateQuestionFields();
+
+      saveButton.textContent = "حفظ التعديلات";
+      document.getElementById("formTitle").textContent = "تعديل السؤال";
+      cancelEdit.classList.remove("hidden");
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function removeQuestion(id) {
+      if (!confirm("هل أنت متأكد من حذف هذا السؤال؟")) return;
+
+      try {
+        const batch = writeBatch(db);
+
+        batch.delete(doc(db, "questions", id));
+        batch.delete(doc(db, "exam_public_questions", id));
+
+        await batch.commit();
+
+        showMessage("تم حذف السؤال ونسخته المعروضة للطلاب.");
+        await loadQuestions();
+
+      } catch (error) {
+        console.error(error);
+        showMessage("لم يتم حذف السؤال. راجع صلاحيات Firestore.", true);
+      }
+    }
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      if (!allowed || saving) return;
+
+      saving = true;
+      saveButton.disabled = true;
+
+      try {
+        const data = readQuestionData();
+
+        const batch = writeBatch(db);
+
+        let questionRef;
+
+        if (editingId) {
+          questionRef = doc(db, "questions", editingId);
+        } else {
+          questionRef = doc(collection(db, "questions"));
+          data.createdAt = serverTimestamp();
+        }
+
+        // الإجابة الصحيحة محفوظة في المجموعة الخاصة فقط.
+        const privateData = {
+          ...data,
+          createdAt: editingCreatedAt || data.createdAt || serverTimestamp()
+        };
+
+        // النسخة العامة لا تحتوي على correctAnswer.
+        const publicData = createPublicQuestion(data);
+
+        batch.set(questionRef, privateData);
+
+        batch.set(
+          doc(db, "exam_public_questions", questionRef.id),
+          {
+            ...publicData,
+            createdAt: editingCreatedAt || data.createdAt || serverTimestamp()
+          }
+        );
+
+        await batch.commit();
+
+        showMessage(
+          editingId
+            ? "تم تعديل السؤال وحفظ النسختين بنجاح."
+            : "تمت إضافة السؤال وحفظ النسختين بنجاح."
+        );
+
+        resetForm();
+        await loadQuestions();
+
+      } catch (error) {
+        console.error(error);
+        showMessage(error.message || "حدث خطأ أثناء الحفظ.", true);
+
+      } finally {
+        saving = false;
+        saveButton.disabled = false;
+      }
+    });
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        location.href = "login.html";
+        return;
+      }
+
+      try {
+        const userSnapshot = await getDoc(doc(db, "users", user.uid));
+
+        if (!userSnapshot.exists() ||
+            userSnapshot.data().role !== "admin") {
+          alert("هذه الصفحة مخصصة للأدمن فقط.");
+          location.href = "index.html";
+          return;
+        }
+
+        if (!examId) {
+          showMessage("رابط الاختبار غير صحيح.", true);
+          return;
+        }
+
+        const examSnapshot = await getDoc(doc(db, "exams", examId));
+
+        if (!examSnapshot.exists()) {
+          showMessage("الاختبار غير موجود.", true);
+          return;
+        }
+
+        allowed = true;
+
+        examTitle.textContent =
+          "الاختبار: " + (examSnapshot.data().title || "بدون اسم");
+
+        await loadQuestions();
+
+      } catch (error) {
+        console.error(error);
+        showMessage("تعذر التحقق من صلاحياتك أو تحميل الاختبار.", true);
+      }
+    });
+
+    updateQuestionFields();
+  </script>
+</body>
+</html>

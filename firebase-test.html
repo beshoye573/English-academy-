@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>اختبار Firebase</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #0b1120;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    .box {
+      width: min(85%, 420px);
+      padding: 30px;
+      text-align: center;
+      background: #121b2e;
+      border-radius: 18px;
+    }
+
+    h1 { color: #38bdf8; }
+    #status { font-size: 17px; line-height: 1.8; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>English Academy</h1>
+    <p>اختبار الاتصال بـ Firebase</p>
+    <div id="status">جاري الاختبار...</div>
+  </div>
+
+  <script type="module">
+    const status = document.getElementById("status");
+
+    try {
+      const { app, auth, db } = await import("./firebase.js");
+
+      if (app && auth && db) {
+        status.textContent = "✅ تم تحميل Firebase بنجاح!";
+      } else {
+        throw new Error("لم يتم تحميل جميع خدمات Firebase");
+      }
+    } catch (error) {
+      console.error(error);
+      status.textContent = "❌ حدث خطأ: " + error.message;
+    }
+  </script>
+</body>
+</html>

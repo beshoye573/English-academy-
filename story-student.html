@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Story | English Academy</title>
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    .story-page {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    .story-search {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 14px;
+      margin: 15px 0 25px;
+      border: 1px solid #34445e;
+      border-radius: 10px;
+      background: #121b2e;
+      color: white;
+      font: inherit;
+    }
+
+    .story-card {
+      background: var(--surface, #121b2e);
+      border: 1px solid #26354d;
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 20px;
+    }
+
+    .story-card h2 {
+      color: #38bdf8;
+    }
+
+    .story-section {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 10px;
+      background: #0b1120;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .story-section h3 {
+      margin-top: 0;
+      color: #38bdf8;
+    }
+
+    .empty-message {
+      text-align: center;
+      padding: 30px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="story-page">
+    <a href="dashboard.html">← العودة إلى لوحة الطالب</a>
+
+    <h1>Story</h1>
+    <p>قصص اللغة الإنجليزية</p>
+
+    <input
+      type="search"
+      id="searchInput"
+      class="story-search"
+      placeholder="ابحث عن قصة..."
+    >
+
+    <div id="storiesList">جارٍ تحميل القصص...</div>
+  </main>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+
+    import {
+      collection,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    import {
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const storiesList = document.getElementById("storiesList");
+    const searchInput = document.getElementById("searchInput");
+
+    let allStories = [];
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        location.href = "login.html";
+        return;
+      }
+
+      await loadStories();
+    });
+
+    async function loadStories() {
+      storiesList.textContent = "جارٍ تحميل القصص...";
+
+      try {
+        const snapshot = await getDocs(collection(db, "stories"));
+
+        allStories = snapshot.docs.map(item => ({
+          id: item.id,
+          ...item.data()
+        }));
+
+        displayStories(allStories);
+
+      } catch (error) {
+        console.error(error);
+        storiesList.textContent =
+          "حدث خطأ أثناء تحميل القصص: " + error.message;
+      }
+    }
+
+    function displayStories(stories) {
+      storiesList.replaceChildren();
+
+      if (stories.length === 0) {
+        const message = document.createElement("p");
+        message.className = "empty-message";
+        message.textContent = "لا توجد قصص مضافة حتى الآن.";
+        storiesList.appendChild(message);
+        return;
+      }
+
+      stories.forEach(story => {
+        const card = document.createElement("article");
+        card.className = "story-card";
+
+        const title = document.createElement("h2");
+        title.textContent = story.title || "قصة بدون عنوان";
+        card.appendChild(title);
+
+        addSection(card, "نص القصة", story.content);
+        addSection(card, "الترجمة العربية", story.translation);
+        addSection(card, "ملاحظات وشرح", story.notes);
+
+        storiesList.appendChild(card);
+      });
+    }
+
+    function addSection(card, heading, content) {
+      if (!content || !content.trim()) return;
+
+      const section = document.createElement("section");
+      section.className = "story-section";
+
+      const title = document.createElement("h3");
+      title.textContent = heading;
+
+      const paragraph = document.createElement("div");
+      paragraph.textContent = content;
+
+      section.append(title, paragraph);
+      card.appendChild(section);
+    }
+
+    searchInput.addEventListener("input", () => {
+      const query = searchInput.value.trim().toLowerCase();
+
+      const filtered = allStories.filter(story => {
+        const searchableText = [
+          story.title,
+          story.content,
+          story.translation,
+          story.notes
+        ].join(" ").toLowerCase();
+
+        return searchableText.includes(query);
+      });
+
+      displayStories(filtered);
+    });
+  </script>
+</body>
+</html>

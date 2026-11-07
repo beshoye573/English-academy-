@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foundation | English Academy</title>
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    .foundation-page {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+
+    .foundation-search {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 14px;
+      margin: 15px 0 25px;
+      border: 1px solid #34445e;
+      border-radius: 10px;
+      background: #121b2e;
+      color: white;
+      font: inherit;
+    }
+
+    .lesson-card {
+      background: var(--surface, #121b2e);
+      border: 1px solid #26354d;
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 20px;
+    }
+
+    .lesson-card h2 {
+      color: #38bdf8;
+      margin-top: 0;
+    }
+
+    .lesson-section {
+      background: #0b1120;
+      padding: 16px;
+      border-radius: 10px;
+      margin-top: 15px;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .lesson-section h3 {
+      color: #38bdf8;
+      margin-top: 0;
+    }
+
+    .empty-message {
+      text-align: center;
+      padding: 30px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="foundation-page">
+
+    <a href="dashboard.html">← العودة إلى لوحة الطالب</a>
+
+    <h1>Foundation</h1>
+    <p>قسم تأسيس اللغة الإنجليزية</p>
+
+    <input
+      type="search"
+      id="searchInput"
+      class="foundation-search"
+      placeholder="ابحث عن درس..."
+    >
+
+    <div id="lessonsList">جارٍ تحميل الدروس...</div>
+
+  </main>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+
+    import {
+      collection,
+      getDocs
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    import {
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const lessonsList = document.getElementById("lessonsList");
+    const searchInput = document.getElementById("searchInput");
+
+    let allLessons = [];
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        location.href = "login.html";
+        return;
+      }
+
+      await loadLessons();
+    });
+
+    async function loadLessons() {
+      lessonsList.textContent = "جارٍ تحميل الدروس...";
+
+      try {
+        const snapshot = await getDocs(collection(db, "foundation"));
+
+        allLessons = snapshot.docs.map(item => ({
+          id: item.id,
+          ...item.data()
+        }));
+
+        displayLessons(allLessons);
+
+      } catch (error) {
+        console.error(error);
+        lessonsList.textContent =
+          "حدث خطأ أثناء تحميل الدروس: " + error.message;
+      }
+    }
+
+    function displayLessons(lessons) {
+      lessonsList.replaceChildren();
+
+      if (lessons.length === 0) {
+        const message = document.createElement("p");
+        message.className = "empty-message";
+        message.textContent = "لا توجد دروس مضافة حتى الآن.";
+        lessonsList.appendChild(message);
+        return;
+      }
+
+      lessons.forEach(lesson => {
+        const card = document.createElement("article");
+        card.className = "lesson-card";
+
+        const title = document.createElement("h2");
+        title.textContent = lesson.title || "درس بدون عنوان";
+        card.appendChild(title);
+
+        addSection(card, "شرح الدرس", lesson.content);
+        addSection(card, "الأمثلة والتدريبات", lesson.examples);
+        addSection(card, "ملاحظات إضافية", lesson.notes);
+
+        lessonsList.appendChild(card);
+      });
+    }
+
+    function addSection(card, heading, content) {
+      if (!content || !content.trim()) return;
+
+      const section = document.createElement("section");
+      section.className = "lesson-section";
+
+      const title = document.createElement("h3");
+      title.textContent = heading;
+
+      const text = document.createElement("div");
+      text.textContent = content;
+
+      section.append(title, text);
+      card.appendChild(section);
+    }
+
+    searchInput.addEventListener("input", () => {
+      const query = searchInput.value.trim().toLowerCase();
+
+      const filtered = allLessons.filter(lesson => {
+        const searchableText = [
+          lesson.title,
+          lesson.content,
+          lesson.examples,
+          lesson.notes
+        ].join(" ").toLowerCase();
+
+        return searchableText.includes(query);
+      });
+
+      displayLessons(filtered);
+    });
+  </script>
+</body>
+</html>

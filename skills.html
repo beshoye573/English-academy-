@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة Skills | English Academy</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .skills-page {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    .skills-form, .skill-item {
+      background: var(--surface, #121b2e);
+      border: 1px solid #26354d;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .skills-form input, .skills-form textarea {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0 15px;
+      border-radius: 8px;
+      border: 1px solid #34445e;
+      background: #0b1120;
+      color: white;
+      font: inherit;
+    }
+    .skills-form button, .skill-item button {
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font: inherit;
+      margin: 4px;
+    }
+    .save-btn { background: #38bdf8; color: #07111e; }
+    .delete-btn { background: #dc4444; color: white; }
+    .edit-btn { background: #64748b; color: white; }
+    .skill-item p { white-space: pre-wrap; }
+    .status { margin: 12px 0; }
+  </style>
+</head>
+
+<body>
+  <main class="skills-page">
+    <a href="admin.html">← العودة إلى لوحة الإدارة</a>
+    <h1>إدارة Skills</h1>
+    <p>إضافة وتعديل وحذف محتوى قسم المهارات.</p>
+
+    <form class="skills-form" id="skillsForm">
+      <h2 id="formTitle">إضافة مهارة جديدة</h2>
+
+      <label for="skillTitle">عنوان المهارة</label>
+      <input id="skillTitle" required placeholder="عنوان المهارة">
+
+      <label for="skillDescription">الشرح أو المحتوى</label>
+      <textarea id="skillDescription" rows="6" placeholder="اكتب المحتوى هنا"></textarea>
+
+      <label for="skillExample">أمثلة أو ملاحظات</label>
+      <textarea id="skillExample" rows="4" placeholder="أمثلة أو ملاحظات"></textarea>
+
+      <button class="save-btn" type="submit">حفظ المهارة</button>
+      <button class="edit-btn" type="button" id="cancelEdit" hidden>إلغاء التعديل</button>
+      <p class="status" id="status"></p>
+    </form>
+
+    <h2>المهارات الموجودة</h2>
+    <div id="skillsList">جارٍ تحميل المهارات...</div>
+  </main>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+    import {
+      collection, addDoc, getDocs, doc, updateDoc,
+      deleteDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const form = document.getElementById("skillsForm");
+    const titleInput = document.getElementById("skillTitle");
+    const descriptionInput = document.getElementById("skillDescription");
+    const exampleInput = document.getElementById("skillExample");
+    const list = document.getElementById("skillsList");
+    const status = document.getElementById("status");
+    const cancelEdit = document.getElementById("cancelEdit");
+
+    let editingId = null;
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        location.href = "login.html";
+        return;
+      }
+
+      try {
+        const { getDoc } = await import(
+          "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js"
+        );
+        const profile = await getDoc(doc(db, "users", user.uid));
+
+        if (!profile.exists() || profile.data().role !== "admin") {
+          alert("هذه الصفحة مخصصة للأدمن فقط.");
+          location.href = "index.html";
+          return;
+        }
+
+        loadSkills();
+      } catch (error) {
+        status.textContent = "حدث خطأ في التحقق من الصلاحيات: " + error.message;
+      }
+    });
+
+    async function loadSkills() {
+      list.textContent = "جارٍ تحميل المهارات...";
+
+      try {
+        const snapshot = await getDocs(collection(db, "skills"));
+        list.replaceChildren();
+
+        if (snapshot.empty) {
+          list.textContent = "لا توجد مهارات مضافة حتى الآن.";
+          return;
+        }
+
+        snapshot.forEach(item => {
+          const data = item.data();
+          const card = document.createElement("article");
+          card.className = "skill-item";
+
+          const heading = document.createElement("h3");
+          heading.textContent = data.title || "";
+
+          const description = document.createElement("p");
+          description.textContent = data.description || "";
+
+          const example = document.createElement("p");
+          example.textContent = data.example || "";
+
+          const editButton = document.createElement("button");
+          editButton.className = "edit-btn";
+          editButton.textContent = "تعديل";
+          editButton.addEventListener("click", () => editSkill(item.id, data));
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "delete-btn";
+          deleteButton.textContent = "حذف";
+          deleteButton.addEventListener("click", () => removeSkill(item.id));
+
+          card.append(heading, description, example, editButton, deleteButton);
+          list.appendChild(card);
+        });
+      } catch (error) {
+        list.textContent = "تعذر تحميل المهارات: " + error.message;
+      }
+    }
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const data = {
+        title: titleInput.value.trim(),
+        description: descriptionInput.value.trim(),
+        example: exampleInput.value.trim(),
+        updatedAt: serverTimestamp()
+      };
+
+      if (!data.title) return;
+
+      try {
+        if (editingId) {
+          await updateDoc(doc(db, "skills", editingId), data);
+          status.textContent = "تم تعديل المهارة بنجاح.";
+        } else {
+          await addDoc(collection(db, "skills"), {
+            ...data,
+            createdAt: serverTimestamp()
+          });
+          status.textContent = "تمت إضافة المهارة بنجاح.";
+        }
+
+        resetForm();
+        await loadSkills();
+      } catch (error) {
+        status.textContent = "حدث خطأ أثناء الحفظ: " + error.message;
+      }
+    });
+
+    function editSkill(id, data) {
+      editingId = id;
+      titleInput.value = data.title || "";
+      descriptionInput.value = data.description || "";
+      exampleInput.value = data.example || "";
+      document.getElementById("formTitle").textContent = "تعديل المهارة";
+      cancelEdit.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function removeSkill(id) {
+      if (!confirm("هل أنت متأكد من حذف هذه المهارة؟")) return;
+
+      try {
+        await deleteDoc(doc(db, "skills", id));
+        status.textContent = "تم حذف المهارة.";
+        await loadSkills();
+      } catch (error) {
+        status.textContent = "تعذر الحذف: " + error.message;
+      }
+    }
+
+    function resetForm() {
+      form.reset();
+      editingId = null;
+      document.getElementById("formTitle").textContent = "إضافة مهارة جديدة";
+      cancelEdit.hidden = true;
+    }
+
+    cancelEdit.addEventListener("click", resetForm);
+  </script>
+</body>
+</html>

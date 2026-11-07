@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مراجعة إجابات الطلاب | English Academy</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #080f1e;
+      color: #f1f5f9;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1050px;
+      margin: auto;
+    }
+
+    h1 { color: #38bdf8; }
+
+    .subtitle { color: #94a3b8; }
+
+    .panel {
+      background: #121b2e;
+      border: 1px solid #26354d;
+      border-radius: 14px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    button, input, textarea {
+      font: inherit;
+      border-radius: 8px;
+    }
+
+    button {
+      border: 0;
+      padding: 11px 17px;
+      cursor: pointer;
+      background: #0284c7;
+      color: white;
+      margin: 5px 0;
+    }
+
+    button:hover { background: #0369a1; }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px;
+      background: #080f1e;
+      border: 1px solid #334155;
+      color: white;
+      margin: 8px 0 15px;
+    }
+
+    textarea { min-height: 90px; resize: vertical; }
+
+    .submission {
+      border: 1px solid #334155;
+      padding: 16px;
+      border-radius: 12px;
+      margin: 12px 0;
+      background: #0d1729;
+    }
+
+    .muted { color: #94a3b8; }
+
+    .question {
+      border-right: 3px solid #38bdf8;
+      padding: 12px;
+      margin: 12px 0;
+      background: #17243a;
+      border-radius: 8px;
+    }
+
+    .answer {
+      color: #cbd5e1;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .hidden { display: none; }
+
+    .status {
+      color: #fbbf24;
+      font-weight: bold;
+    }
+
+    .success { color: #4ade80; }
+
+    .error { color: #f87171; }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .grade-box {
+      border: 1px solid #38bdf8;
+      padding: 16px;
+      border-radius: 12px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="container">
+
+    <div class="topbar">
+      <div>
+        <h1>مراجعة إجابات الطلاب</h1>
+        <p class="subtitle">راجع التسليمات وحدد درجات الطلاب يدويًا.</p>
+      </div>
+      <button onclick="location.href='admin.html'">العودة للوحة الإدارة</button>
+    </div>
+
+    <div id="message" class="panel">جاري التحقق من صلاحيات الدخول...</div>
+
+    <section id="listSection" class="hidden">
+      <h2>تسليمات الطلاب</h2>
+      <div id="submissionsList"></div>
+    </section>
+
+    <section id="reviewSection" class="hidden">
+      <div class="panel">
+        <button onclick="backToList()">← العودة للتسليمات</button>
+
+        <h2 id="reviewTitle">مراجعة التسليم</h2>
+        <div id="studentInfo" class="muted"></div>
+
+        <hr style="border-color:#334155; margin:20px 0">
+
+        <h3>إجابات الطالب</h3>
+        <div id="answersList"></div>
+
+        <div class="grade-box">
+          <h3>اعتماد الدرجة</h3>
+
+          <label for="grade">درجة الطالب</label>
+          <input id="grade" type="number" min="0" step="0.5"
+                 placeholder="اكتب الدرجة">
+
+          <div id="maxScoreText" class="muted"></div>
+
+          <label for="feedback">ملاحظات للطالب (اختياري)</label>
+          <textarea id="feedback"
+            placeholder="اكتب ملاحظاتك على إجابات الطالب..."></textarea>
+
+          <button id="saveGradeBtn" onclick="saveGrade()">
+            اعتماد النتيجة
+          </button>
+
+          <div id="gradeMessage"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+
+    import {
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    import {
+      collection,
+      getDocs,
+      doc,
+      getDoc,
+      updateDoc,
+      query,
+      where
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    const message = document.getElementById("message");
+    const listSection = document.getElementById("listSection");
+    const reviewSection = document.getElementById("reviewSection");
+    const submissionsList = document.getElementById("submissionsList");
+
+    let currentSubmission = null;
+    let currentQuestions = [];
+    let currentMaxScore = 0;
+
+    function showMessage(text, type = "") {
+      message.textContent = text;
+      message.className = "panel " + type;
+    }
+
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      })[char]);
+    }
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        location.href = "login.html";
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+
+        if (!userSnap.exists() || userSnap.data().role !== "admin") {
+          showMessage("ليس لديك صلاحية الدخول إلى هذه الصفحة.", "error");
+          return;
+        }
+
+        showMessage("تم التحقق من صلاحيات الأدمن.", "success");
+        await loadSubmissions();
+
+      } catch (error) {
+        console.error(error);
+        showMessage("حدث خطأ أثناء التحقق من الحساب: " + error.message, "error");
+      }
+    });
+
+    async function loadSubmissions() {
+      submissionsList.innerHTML = "<p>جاري تحميل التسليمات...</p>";
+      listSection.classList.remove("hidden");
+
+      try {
+        const snapshot = await getDocs(collection(db, "exam_submissions"));
+
+        if (snapshot.empty) {
+          submissionsList.innerHTML =
+            '<div class="panel">لا توجد تسليمات حتى الآن.</div>';
+          return;
+        }
+
+        const examCache = {};
+
+        submissionsList.innerHTML = "";
+
+        for (const item of snapshot.docs) {
+          const data = item.data();
+
+          let examTitle = data.examId || "اختبار غير معروف";
+
+          if (!examCache[data.examId]) {
+            const examSnap = await getDoc(doc(db, "exams", data.examId));
+
+            examCache[data.examId] = examSnap.exists()
+              ? examSnap.data().title
+              : "اختبار محذوف";
+          }
+
+          examTitle = examCache[data.examId];
+
+          const graded = data.status === "graded";
+
+          const card = document.createElement("div");
+          card.className = "submission";
+
+          card.innerHTML = `
+            <h3>${escapeHTML(examTitle)}</h3>
+            <p class="muted">معرّف الطالب: ${escapeHTML(data.studentId)}</p>
+            <p class="status ${graded ? "success" : ""}">
+              ${graded ? "تم اعتماد النتيجة" : "في انتظار التصحيح"}
+            </p>
+            ${graded
+              ? `<p>الدرجة المعتمدة: ${escapeHTML(data.grade)} / ${escapeHTML(data.maxScore)}</p>`
+              : ""}
+            <button type="button">مراجعة الإجابات</button>
+          `;
+
+          card.querySelector("button").addEventListener("click", () => {
+            openSubmission(item.id, data, examTitle);
+          });
+
+          submissionsList.appendChild(card);
+        }
+
+      } catch (error) {
+        console.error(error);
+        submissionsList.innerHTML =
+          `<p class="error">تعذر تحميل التسليمات: ${escapeHTML(error.message)}</p>`;
+      }
+    }
+
+    async function openSubmission(id, data, examTitle) {
+      currentSubmission = { id, data };
+
+      listSection.classList.add("hidden");
+      reviewSection.classList.remove("hidden");
+
+      document.getElementById("reviewTitle").textContent = examTitle;
+      document.getElementById("studentInfo").textContent =
+        "معرّف الطالب: " + data.studentId;
+
+      document.getElementById("gradeMessage").textContent = "";
+      document.getElementById("grade").value =
+        data.grade ?? "";
+
+      document.getElementById("feedback").value =
+        data.feedback ?? "";
+
+      const answersList = document.getElementById("answersList");
+      answersList.innerHTML = "<p>جاري تحميل الأسئلة والإجابات...</p>";
+
+      try {
+        const q = query(
+          collection(db, "questions"),
+          where("examId", "==", data.examId)
+        );
+
+        const snapshot = await getDocs(q);
+
+        currentQuestions = snapshot.docs
+          .map(item => ({ id: item.id, ...item.data() }))
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+        currentMaxScore = currentQuestions.reduce(
+          (total, question) => total + Number(question.points || 0), 0
+        );
+
+        document.getElementById("maxScoreText").textContent =
+          "إجمالي درجات أسئلة الاختبار: " + currentMaxScore;
+
+        const answers = data.answers || {};
+
+        if (!currentQuestions.length) {
+          answersList.innerHTML =
+            '<p class="muted">لم يتم العثور على أسئلة هذا الاختبار.</p>';
+          return;
+        }
+
+        answersList.innerHTML = "";
+
+        currentQuestions.forEach((question, index) => {
+          const answer = answers[question.id];
+          const answerText = answer === undefined || answer === null || answer === ""
+            ? "لم تتم الإجابة"
+            : typeof answer === "object"
+              ? JSON.stringify(answer)
+              : String(answer);
+
+          const correctText = question.correctAnswer === undefined
+            ? "غير محددة"
+            : String(question.correctAnswer);
+
+          const div = document.createElement("div");
+          div.className = "question";
+
+          div.innerHTML = `
+            <h4>السؤال ${index + 1}: ${escapeHTML(question.text)}</h4>
+            <p><strong>إجابة الطالب:</strong></p>
+            <p class="answer">${escapeHTML(answerText)}</p>
+            <p><strong>الإجابة الصحيحة (للأدمن):</strong>
+              ${escapeHTML(correctText)}</p>
+            <p class="muted">درجة السؤال: ${escapeHTML(question.points || 0)}</p>
+          `;
+
+          answersList.appendChild(div);
+        });
+
+      } catch (error) {
+        console.error(error);
+        answersList.innerHTML =
+          `<p class="error">حدث خطأ أثناء تحميل الإجابات: ${escapeHTML(error.message)}</p>`;
+      }
+    }
+
+    window.backToList = function() {
+      reviewSection.classList.add("hidden");
+      listSection.classList.remove("hidden");
+      currentSubmission = null;
+    };
+
+    window.saveGrade = async function() {
+      if (!currentSubmission) return;
+
+      const gradeInput = document.getElementById("grade");
+      const feedbackInput = document.getElementById("feedback");
+      const resultMessage = document.getElementById("gradeMessage");
+      const saveButton = document.getElementById("saveGradeBtn");
+
+      const grade = Number(gradeInput.value);
+
+      if (
+        gradeInput.value.trim() === "" ||
+        !Number.isFinite(grade) ||
+        grade < 0 ||
+        grade > currentMaxScore
+      ) {
+        resultMessage.textContent =
+          "اكتب درجة صحيحة بين صفر وإجمالي درجات الاختبار.";
+        resultMessage.className = "error";
+        return;
+      }
+
+      saveButton.disabled = true;
+      resultMessage.textContent = "جاري حفظ النتيجة...";
+
+      try {
+        await updateDoc(
+          doc(db, "exam_submissions", currentSubmission.id),
+          {
+            grade,
+            maxScore: currentMaxScore,
+            feedback: feedbackInput.value.trim(),
+            status: "graded",
+            gradedAt: new Date()
+          }
+        );
+
+        resultMessage.textContent = "تم اعتماد الدرجة وحفظها بنجاح.";
+        resultMessage.className = "success";
+
+        currentSubmission.data.grade = grade;
+        currentSubmission.data.maxScore = currentMaxScore;
+        currentSubmission.data.status = "graded";
+        currentSubmission.data.feedback = feedbackInput.value.trim();
+
+      } catch (error) {
+        console.error(error);
+        resultMessage.textContent =
+          "تعذر حفظ النتيجة: " + error.message;
+        resultMessage.className = "error";
+
+      } finally {
+        saveButton.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة Story | English Academy</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .story-page { max-width: 1000px; margin: 40px auto; padding: 20px; }
+    .story-form, .story-card {
+      background: var(--surface, #121b2e);
+      border: 1px solid #26354d;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .story-form input, .story-form textarea {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      margin: 8px 0 16px;
+      border: 1px solid #34445e;
+      border-radius: 8px;
+      background: #0b1120;
+      color: white;
+      font: inherit;
+    }
+    button {
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font: inherit;
+      margin: 4px;
+    }
+    .save-btn { background: #38bdf8; color: #07111e; }
+    .edit-btn { background: #64748b; color: white; }
+    .delete-btn { background: #dc4444; color: white; }
+    .story-content { white-space: pre-wrap; line-height: 1.9; }
+    .status { margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <main class="story-page">
+    <a href="admin.html">← العودة إلى لوحة الإدارة</a>
+    <h1>إدارة Story</h1>
+    <p>إضافة القصص الموجودة في المنهج وإدارة محتواها.</p>
+
+    <form class="story-form" id="storyForm">
+      <h2 id="formTitle">إضافة قصة جديدة</h2>
+
+      <label for="storyTitle">عنوان القصة</label>
+      <input id="storyTitle" required placeholder="عنوان القصة">
+
+      <label for="storyContent">نص القصة</label>
+      <textarea id="storyContent" rows="12" placeholder="اكتب نص القصة هنا"></textarea>
+
+      <label for="storyTranslation">الترجمة العربية</label>
+      <textarea id="storyTranslation" rows="8" placeholder="الترجمة العربية إن وجدت"></textarea>
+
+      <label for="storyNotes">ملاحظات أو شرح</label>
+      <textarea id="storyNotes" rows="5" placeholder="ملاحظات إضافية"></textarea>
+
+      <button class="save-btn" type="submit">حفظ القصة</button>
+      <button class="edit-btn" type="button" id="cancelEdit" hidden>إلغاء التعديل</button>
+      <p class="status" id="status"></p>
+    </form>
+
+    <h2>القصص المضافة</h2>
+    <div id="storiesList">جارٍ تحميل القصص...</div>
+  </main>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+    import {
+      collection, addDoc, getDocs, doc, updateDoc,
+      deleteDoc, getDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const form = document.getElementById("storyForm");
+    const titleInput = document.getElementById("storyTitle");
+    const contentInput = document.getElementById("storyContent");
+    const translationInput = document.getElementById("storyTranslation");
+    const notesInput = document.getElementById("storyNotes");
+    const list = document.getElementById("storiesList");
+    const status = document.getElementById("status");
+    const cancelEdit = document.getElementById("cancelEdit");
+
+    let editingId = null;
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        location.href = "login.html";
+        return;
+      }
+
+      try {
+        const profile = await getDoc(doc(db, "users", user.uid));
+
+        if (!profile.exists() || profile.data().role !== "admin") {
+          alert("هذه الصفحة مخصصة للأدمن فقط.");
+          location.href = "index.html";
+          return;
+        }
+
+        await loadStories();
+      } catch (error) {
+        status.textContent = "تعذر التحقق من الصلاحيات: " + error.message;
+      }
+    });
+
+    async function loadStories() {
+      list.textContent = "جارٍ تحميل القصص...";
+
+      try {
+        const snapshot = await getDocs(collection(db, "stories"));
+        list.replaceChildren();
+
+        if (snapshot.empty) {
+          list.textContent = "لا توجد قصص مضافة حتى الآن.";
+          return;
+        }
+
+        snapshot.forEach(item => {
+          const data = item.data();
+          const card = document.createElement("article");
+          card.className = "story-card";
+
+          const heading = document.createElement("h3");
+          heading.textContent = data.title || "";
+
+          const content = document.createElement("p");
+          content.className = "story-content";
+          content.textContent = data.content || "";
+
+          const editButton = document.createElement("button");
+          editButton.className = "edit-btn";
+          editButton.textContent = "تعديل";
+          editButton.addEventListener("click", () => editStory(item.id, data));
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "delete-btn";
+          deleteButton.textContent = "حذف";
+          deleteButton.addEventListener("click", () => removeStory(item.id));
+
+          card.append(heading, content, editButton, deleteButton);
+          list.appendChild(card);
+        });
+      } catch (error) {
+        list.textContent = "تعذر تحميل القصص: " + error.message;
+      }
+    }
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const data = {
+        title: titleInput.value.trim(),
+        content: contentInput.value.trim(),
+        translation: translationInput.value.trim(),
+        notes: notesInput.value.trim(),
+        updatedAt: serverTimestamp()
+      };
+
+      if (!data.title) return;
+
+      try {
+        if (editingId) {
+          await updateDoc(doc(db, "stories", editingId), data);
+          status.textContent = "تم تعديل القصة بنجاح.";
+        } else {
+          await addDoc(collection(db, "stories"), {
+            ...data,
+            createdAt: serverTimestamp()
+          });
+          status.textContent = "تمت إضافة القصة بنجاح.";
+        }
+
+        resetForm();
+        await loadStories();
+      } catch (error) {
+        status.textContent = "حدث خطأ أثناء الحفظ: " + error.message;
+      }
+    });
+
+    function editStory(id, data) {
+      editingId = id;
+      titleInput.value = data.title || "";
+      contentInput.value = data.content || "";
+      translationInput.value = data.translation || "";
+      notesInput.value = data.notes || "";
+
+      document.getElementById("formTitle").textContent = "تعديل القصة";
+      cancelEdit.hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    async function removeStory(id) {
+      if (!confirm("هل أنت متأكد من حذف هذه القصة؟")) return;
+
+      try {
+        await deleteDoc(doc(db, "stories", id));
+        status.textContent = "تم حذف القصة.";
+        await loadStories();
+      } catch (error) {
+        status.textContent = "تعذر الحذف: " + error.message;
+      }
+    }
+
+    function resetForm() {
+      form.reset();
+      editingId = null;
+      document.getElementById("formTitle").textContent = "إضافة قصة جديدة";
+      cancelEdit.hidden = true;
+    }
+
+    cancelEdit.addEventListener("click", resetForm);
+  </script>
+</body>
+</html>

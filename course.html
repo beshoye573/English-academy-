@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>الوحدات الدراسية | English Academy</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0b1120;
+      color: #f1f5f9;
+    }
+    header {
+      padding: 22px 7%;
+      background: #121b2e;
+      border-bottom: 1px solid #263449;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    header a {
+      color: #38bdf8;
+      text-decoration: none;
+    }
+    main {
+      width: min(1100px, 90%);
+      margin: 45px auto;
+    }
+    .intro { margin-bottom: 30px; }
+    .intro h1 { margin-bottom: 10px; }
+    .intro p { color: #94a3b8; line-height: 1.8; }
+    #units {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 20px;
+    }
+    .unit {
+      background: #121b2e;
+      border: 1px solid #263449;
+      border-radius: 16px;
+      padding: 24px;
+      transition: .2s;
+    }
+    .unit:hover {
+      transform: translateY(-4px);
+      border-color: #38bdf8;
+    }
+    .unit h2 { font-size: 20px; }
+    .unit p {
+      color: #94a3b8;
+      line-height: 1.7;
+    }
+    .unit a {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 11px 18px;
+      border-radius: 9px;
+      background: #0284c7;
+      color: white;
+      text-decoration: none;
+    }
+    .message {
+      color: #94a3b8;
+      text-align: center;
+      padding: 35px;
+      background: #121b2e;
+      border-radius: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <strong>English Academy</strong>
+  <a href="dashboard.html">العودة للوحة الطالب ←</a>
+</header>
+
+<main>
+  <section class="intro">
+    <h1>الوحدات الدراسية 📚</h1>
+    <p>اختر الوحدة التي تريد دراستها لعرض الدروس الخاصة بها.</p>
+  </section>
+
+  <section id="units">
+    <div class="message">جارٍ تحميل الوحدات...</div>
+  </section>
+</main>
+
+<script type="module">
+  import { auth, db } from "./firebase.js";
+  import {
+    collection,
+    getDocs,
+    query,
+    orderBy
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+  import { onAuthStateChanged } from
+    "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+  const unitsContainer = document.getElementById("units");
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.replace("login.html");
+      return;
+    }
+
+    await loadUnits();
+  });
+
+  async function loadUnits() {
+    try {
+      const unitsQuery = query(
+        collection(db, "units"),
+        orderBy("number", "asc")
+      );
+
+      const snapshot = await getDocs(unitsQuery);
+
+      if (snapshot.empty) {
+        unitsContainer.innerHTML =
+          '<div class="message">لا توجد وحدات دراسية حتى الآن.</div>';
+        return;
+      }
+
+      unitsContainer.innerHTML = "";
+
+      snapshot.forEach((doc) => {
+        const unit = doc.data();
+
+        const card = document.createElement("article");
+        card.className = "unit";
+
+        const title = document.createElement("h2");
+        title.textContent = unit.title || "وحدة دراسية";
+
+        const description = document.createElement("p");
+        description.textContent =
+          unit.description || "اضغط لعرض دروس هذه الوحدة.";
+
+        const link = document.createElement("a");
+        link.textContent = "عرض الدروس";
+        link.href = `unit.html?unitId=${encodeURIComponent(doc.id)}`;
+
+        card.append(title, description, link);
+        unitsContainer.appendChild(card);
+      });
+
+    } catch (error) {
+      console.error(error);
+      unitsContainer.innerHTML =
+        '<div class="message">حدث خطأ أثناء تحميل الوحدات. تأكد من اتصالك بالإنترنت وقواعد Firestore.</div>';
+    }
+  }
+</script>
+
+</body>
+</html>

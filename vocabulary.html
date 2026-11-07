@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>إدارة الكلمات | English Academy</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #080f1e;
+      color: #f1f5f9;
+    }
+    header {
+      padding: 20px 6%;
+      background: #121b2e;
+      border-bottom: 1px solid #263449;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    a { color: #38bdf8; text-decoration: none; }
+    main { width: min(1000px, 92%); margin: 35px auto; }
+    .panel {
+      background: #121b2e;
+      border: 1px solid #263449;
+      border-radius: 15px;
+      padding: 22px;
+      margin-bottom: 22px;
+    }
+    h1 { font-size: 28px; }
+    h2 { font-size: 21px; margin-top: 0; }
+    label { display: block; margin: 14px 0 7px; color: #cbd5e1; }
+    input, textarea {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      background: #080f1e;
+      color: white;
+      font-size: 15px;
+    }
+    textarea { min-height: 85px; resize: vertical; }
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 12px 18px;
+      margin-top: 15px;
+      background: #0284c7;
+      color: white;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    button:hover { background: #0369a1; }
+    .delete { background: #b91c1c; margin-right: 8px; }
+    .delete:hover { background: #991b1b; }
+    .word-card {
+      background: #0b1629;
+      border: 1px solid #263449;
+      border-radius: 12px;
+      padding: 18px;
+      margin-top: 13px;
+    }
+    .word-card h3 {
+      color: #38bdf8;
+      margin: 0 0 10px;
+      direction: ltr;
+      text-align: right;
+    }
+    .word-card p { line-height: 1.8; color: #cbd5e1; }
+    #status { color: #94a3b8; line-height: 1.8; }
+    @media(max-width: 600px) {
+      main { margin: 22px auto; }
+      .panel { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <strong>English Academy | إدارة الكلمات</strong>
+  <a href="admin.html">العودة للوحة الإدارة</a>
+</header>
+
+<main>
+  <h1>إدارة Vocabulary</h1>
+
+  <section class="panel">
+    <h2 id="formTitle">إضافة كلمة جديدة</h2>
+
+    <form id="wordForm">
+      <label for="word">الكلمة باللغة الإنجليزية</label>
+      <input id="word" required maxlength="100" placeholder="Example: Achieve">
+
+      <label for="meaning">المعنى بالعربية</label>
+      <input id="meaning" required maxlength="250" placeholder="يحقق">
+
+      <label for="example">مثال باللغة الإنجليزية</label>
+      <textarea id="example" maxlength="1000" placeholder="I want to achieve my goals."></textarea>
+
+      <label for="translation">ترجمة المثال</label>
+      <textarea id="translation" maxlength="1000" placeholder="أريد أن أحقق أهدافي."></textarea>
+
+      <button id="saveButton" type="submit">حفظ الكلمة</button>
+      <button id="cancelButton" type="button" hidden>إلغاء التعديل</button>
+    </form>
+
+    <p id="status" role="status"></p>
+  </section>
+
+  <section class="panel">
+    <h2>الكلمات المضافة</h2>
+    <div id="wordsList">جارٍ تحميل الكلمات...</div>
+  </section>
+</main>
+
+<script type="module">
+  import { auth, db } from "./firebase.js";
+
+  import {
+    collection, addDoc, getDocs, doc, updateDoc,
+    deleteDoc, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+  import { onAuthStateChanged } from
+    "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+  const form = document.getElementById("wordForm");
+  const wordInput = document.getElementById("word");
+  const meaningInput = document.getElementById("meaning");
+  const exampleInput = document.getElementById("example");
+  const translationInput = document.getElementById("translation");
+  const wordsList = document.getElementById("wordsList");
+  const status = document.getElementById("status");
+  const saveButton = document.getElementById("saveButton");
+  const cancelButton = document.getElementById("cancelButton");
+
+  let editingId = null;
+  let isAdmin = false;
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      location.replace("login.html");
+      return;
+    }
+
+    try {
+      const { getDoc } = await import(
+        "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js"
+      );
+
+      const profile = await getDoc(doc(db, "users", user.uid));
+
+      if (!profile.exists() || profile.data().role !== "admin") {
+        location.replace("index.html");
+        return;
+      }
+
+      isAdmin = true;
+      await loadWords();
+
+    } catch (error) {
+      console.error(error);
+      status.textContent = "تعذر التحقق من صلاحيات الإدارة.";
+    }
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    if (!isAdmin) return;
+
+    const data = {
+      word: wordInput.value.trim(),
+      meaning: meaningInput.value.trim(),
+      example: exampleInput.value.trim(),
+      translation: translationInput.value.trim(),
+      updatedAt: serverTimestamp()
+    };
+
+    if (!data.word || !data.meaning) {
+      status.textContent = "اكتب الكلمة ومعناها أولًا.";
+      return;
+    }
+
+    saveButton.disabled = true;
+    status.textContent = "جارٍ الحفظ...";
+
+    try {
+      if (editingId) {
+        await updateDoc(doc(db, "vocabulary", editingId), data);
+        status.textContent = "تم تعديل الكلمة بنجاح.";
+      } else {
+        await addDoc(collection(db, "vocabulary"), {
+          ...data,
+          createdAt: serverTimestamp()
+        });
+        status.textContent = "تمت إضافة الكلمة بنجاح.";
+      }
+
+      resetForm();
+      await loadWords();
+
+    } catch (error) {
+      console.error(error);
+      status.textContent = "تعذر الحفظ. راجع اتصال Firebase وقواعد Firestore.";
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+
+  async function loadWords() {
+    wordsList.textContent = "جارٍ تحميل الكلمات...";
+
+    try {
+      const snapshot = await getDocs(collection(db, "vocabulary"));
+      wordsList.innerHTML = "";
+
+      if (snapshot.empty) {
+        wordsList.textContent = "لم تتم إضافة كلمات حتى الآن.";
+        return;
+      }
+
+      snapshot.forEach((wordDoc) => {
+        const item = wordDoc.data();
+
+        const card = document.createElement("article");
+        card.className = "word-card";
+
+        const title = document.createElement("h3");
+        title.textContent = item.word || "";
+
+        const meaning = document.createElement("p");
+        meaning.textContent = `المعنى: ${item.meaning || ""}`;
+
+        const example = document.createElement("p");
+        example.textContent = `Example: ${item.example || "لا يوجد"}`;
+
+        const translation = document.createElement("p");
+        translation.textContent = `الترجمة: ${item.translation || "لا توجد"}`;
+
+        const editButton = document.createElement("button");
+        editButton.textContent = "تعديل";
+        editButton.addEventListener("click", () => {
+          editingId = wordDoc.id;
+          wordInput.value = item.word || "";
+          meaningInput.value = item.meaning || "";
+          exampleInput.value = item.example || "";
+          translationInput.value = item.translation || "";
+          document.getElementById("formTitle").textContent = "تعديل الكلمة";
+          saveButton.textContent = "حفظ التعديلات";
+          cancelButton.hidden = false;
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+
+        const deleteButton = document.createElement("button");
+        deleteButton.textContent = "حذف";
+        deleteButton.className = "delete";
+        deleteButton.addEventListener("click", async () => {
+          if (!confirm(`هل تريد حذف كلمة ${item.word}؟`)) return;
+
+          try {
+            await deleteDoc(doc(db, "vocabulary", wordDoc.id));
+            status.textContent = "تم حذف الكلمة.";
+            await loadWords();
+          } catch (error) {
+            console.error(error);
+            status.textContent = "تعذر حذف الكلمة.";
+          }
+        });
+
+        card.append(title, meaning, example, translation, editButton, deleteButton);
+        wordsList.appendChild(card);
+      });
+
+    } catch (error) {
+      console.error(error);
+      wordsList.textContent = "تعذر تحميل الكلمات. راجع قواعد Firestore.";
+    }
+  }
+
+  function resetForm() {
+    form.reset();
+    editingId = null;
+    document.getElementById("formTitle").textContent = "إضافة كلمة جديدة";
+    saveButton.textContent = "حفظ الكلمة";
+    cancelButton.hidden = true;
+  }
+
+  cancelButton.addEventListener("click", () => {
+    resetForm();
+    status.textContent = "";
+  });
+</script>
+
+</body>
+</html>

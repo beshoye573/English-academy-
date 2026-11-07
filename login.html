@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تسجيل الدخول | English Academy</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      display: grid;
+      place-items: center;
+      background: #0b1120;
+      color: #f8fafc;
+      font-family: Arial, sans-serif;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 430px;
+      padding: 32px;
+      background: #121b2e;
+      border: 1px solid #26364d;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px #0005;
+    }
+
+    .logo {
+      width: 58px;
+      height: 58px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 20px;
+      border-radius: 16px;
+      background: #0891b2;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    h1, .subtitle { text-align: center; }
+    h1 { margin-bottom: 10px; }
+
+    .subtitle {
+      color: #94a3b8;
+      line-height: 1.7;
+      margin-bottom: 28px;
+    }
+
+    label {
+      display: block;
+      margin: 17px 0 8px;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      outline: none;
+      background: #0b1120;
+      color: white;
+      font-size: 15px;
+    }
+
+    input:focus { border-color: #06b6d4; }
+
+    button {
+      width: 100%;
+      margin-top: 25px;
+      padding: 15px;
+      border: 0;
+      border-radius: 10px;
+      background: #06b6d4;
+      color: #06202a;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    #message {
+      margin-top: 18px;
+      text-align: center;
+      line-height: 1.7;
+      font-size: 14px;
+    }
+
+    .links {
+      margin-top: 24px;
+      text-align: center;
+      color: #94a3b8;
+      line-height: 2;
+      font-size: 14px;
+    }
+
+    a {
+      color: #22d3ee;
+      text-decoration: none;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="login-card">
+    <div class="logo">E</div>
+
+    <h1>مرحبًا بعودتك</h1>
+    <p class="subtitle">
+      سجل دخولك لمتابعة رحلتك التعليمية في English Academy.
+    </p>
+
+    <form id="loginForm">
+      <label for="email">البريد الإلكتروني</label>
+      <input
+        id="email"
+        type="email"
+        placeholder="example@email.com"
+        required
+      >
+
+      <label for="password">كلمة المرور</label>
+      <input
+        id="password"
+        type="password"
+        placeholder="اكتب كلمة المرور"
+        required
+      >
+
+      <button id="loginButton" type="submit">
+        تسجيل الدخول
+      </button>
+    </form>
+
+    <div id="message" role="status" aria-live="polite"></div>
+
+    <div class="links">
+      ليس لديك حساب؟
+      <a href="register.html">إنشاء حساب جديد</a>
+      <br>
+      <a href="index.html">العودة للرئيسية</a>
+    </div>
+  </main>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+
+    import {
+      signInWithEmailAndPassword,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    import {
+      doc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    const form = document.getElementById("loginForm");
+    const message = document.getElementById("message");
+    const button = document.getElementById("loginButton");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      button.disabled = true;
+      button.textContent = "جاري تسجيل الدخول...";
+      message.textContent = "";
+
+      try {
+        const result = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+
+        const userDoc = await getDoc(
+          doc(db, "users", result.user.uid)
+        );
+
+        if (!userDoc.exists()) {
+          throw new Error("ACCOUNT_PROFILE_MISSING");
+        }
+
+        const userData = userDoc.data();
+
+        if (userData.role === "admin") {
+          message.style.color = "#4ade80";
+          message.textContent = "مرحبًا بك، جاري فتح لوحة الإدارة...";
+
+          window.location.replace("admin.html");
+          return;
+        }
+
+        if (userData.role === "student") {
+          message.style.color = "#4ade80";
+          message.textContent = "تم تسجيل الدخول بنجاح، جاري الانتقال...";
+
+          window.location.replace("index.html");
+          return;
+        }
+
+        await signOut(auth);
+        throw new Error("INVALID_ACCOUNT_ROLE");
+
+      } catch (error) {
+        console.error(error);
+
+        const errors = {
+          "auth/invalid-credential":
+            "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+
+          "auth/user-disabled":
+            "هذا الحساب غير متاح حاليًا.",
+
+          "auth/too-many-requests":
+            "محاولات كثيرة. حاول مرة أخرى لاحقًا.",
+
+          "ACCOUNT_PROFILE_MISSING":
+            "الحساب موجود لكن بياناته غير مكتملة. تواصل مع الإدارة.",
+
+          "INVALID_ACCOUNT_ROLE":
+            "هذا الحساب ليس له صلاحية دخول معروفة.",
+
+          "permission-denied":
+            "تعذر التحقق من بيانات الحساب."
+        };
+
+        message.style.color = "#f87171";
+        message.textContent =
+          errors[error.code] ||
+          errors[error.message] ||
+          "حدث خطأ أثناء تسجيل الدخول.";
+
+        if (
+          error.message === "ACCOUNT_PROFILE_MISSING" ||
+          error.message === "INVALID_ACCOUNT_ROLE"
+        ) {
+          await signOut(auth);
+        }
+
+      } finally {
+        button.disabled = false;
+        button.textContent = "تسجيل الدخول";
+      }
+    });
+  </script>
+</body>
+</html>

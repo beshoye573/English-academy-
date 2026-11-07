@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#080f1e">
+    <title>لوحة الإدارة | English Academy</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #080f1e;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+        }
+
+        .layout {
+            min-height: 100vh;
+            display: flex;
+        }
+
+        aside {
+            width: 250px;
+            flex-shrink: 0;
+            padding: 25px 18px;
+            background: #101a2c;
+            border-left: 1px solid #26364d;
+        }
+
+        .brand {
+            padding: 10px;
+            margin-bottom: 35px;
+            color: #38bdf8;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .nav-title {
+            margin: 20px 10px 12px;
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 13px;
+            margin-bottom: 7px;
+            border-radius: 9px;
+            color: #cbd5e1;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .nav-link.active,
+        .nav-link:hover {
+            background: #164e63;
+            color: #67e8f9;
+        }
+
+        main {
+            flex: 1;
+            min-width: 0;
+            padding: 28px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #26364d;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .admin-info {
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .logout {
+            padding: 11px 17px;
+            border: 1px solid #7f1d1d;
+            border-radius: 9px;
+            background: #451a1a;
+            color: #fecaca;
+            cursor: pointer;
+        }
+
+        .welcome {
+            margin: 28px 0;
+            padding: 27px;
+            border: 1px solid #164e63;
+            border-radius: 16px;
+            background: linear-gradient(120deg, #164e63, #172554);
+        }
+
+        .welcome h2 {
+            margin-top: 0;
+        }
+
+        .welcome p {
+            color: #dbeafe;
+            line-height: 1.8;
+        }
+
+        .section-title {
+            margin: 32px 0 18px;
+            font-size: 19px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 17px;
+        }
+
+        .card {
+            display: block;
+            padding: 22px;
+            border: 1px solid #26364d;
+            border-radius: 14px;
+            background: #121b2e;
+            transition: .2s;
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .card:hover {
+            border-color: #38bdf8;
+            transform: translateY(-3px);
+        }
+
+        .card-icon {
+            margin-bottom: 14px;
+            font-size: 30px;
+        }
+
+        .card h3 {
+            margin: 0 0 10px;
+        }
+
+        .card p {
+            min-height: 42px;
+            color: #94a3b8;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .card span {
+            color: #38bdf8;
+            font-size: 13px;
+        }
+
+        .coming,
+        .ready {
+            display: inline-block;
+            padding: 5px 9px;
+            border-radius: 6px;
+        }
+
+        .coming {
+            background: #1e293b;
+            color: #94a3b8 !important;
+        }
+
+        .ready {
+            background: #064e3b;
+            color: #6ee7b7 !important;
+        }
+
+        #status {
+            padding: 50px 20px;
+            text-align: center;
+            color: #94a3b8;
+        }
+
+        @media (max-width: 750px) {
+            .layout {
+                display: block;
+            }
+
+            aside {
+                width: 100%;
+                padding: 15px;
+            }
+
+            .brand {
+                margin-bottom: 10px;
+            }
+
+            aside nav {
+                display: flex;
+                gap: 7px;
+                overflow-x: auto;
+            }
+
+            .nav-title {
+                display: none;
+            }
+
+            .nav-link {
+                flex-shrink: 0;
+                margin: 0;
+            }
+
+            main {
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="status">جاري التحقق من صلاحيات الدخول...</div>
+
+    <div class="layout" id="adminLayout" hidden>
+
+        <aside>
+            <div class="brand">English Academy</div>
+
+            <nav>
+                <div class="nav-title">القائمة الرئيسية</div>
+                <a href="admin.html" class="nav-link active">🏠 الرئيسية</a>
+
+                <div class="nav-title">إدارة المحتوى</div>
+                <a href="vocabulary.html" class="nav-link">📚 الكلمات</a>
+                <a href="grammar.html" class="nav-link">✍️ القواعد</a>
+                <a href="units.html" class="nav-link">📖 الوحدات</a>
+                <a href="#media" class="nav-link">🎬 الفيديوهات والملفات</a>
+
+                <div class="nav-title">إدارة الاختبارات</div>
+                <a href="exams.html" class="nav-link">🎯 الاختبارات</a>
+                <a href="submissions.html" class="nav-link">📝 تصحيح الاختبارات</a>
+
+                <div class="nav-title">الحساب</div>
+                <a href="index.html" class="nav-link">🌐 الموقع الرئيسي</a>
+            </nav>
+        </aside>
+
+        <main>
+            <header>
+                <div>
+                    <h1>لوحة الإدارة</h1>
+                    <p class="admin-info">
+                        مرحبًا، <strong id="adminName">Admin</strong>
+                    </p>
+                </div>
+
+                <button class="logout" id="logoutButton">
+                    تسجيل الخروج
+                </button>
+            </header>
+
+            <section class="welcome">
+                <h2>مرحبًا بك في لوحة التحكم 👋</h2>
+                <p>
+                    من هنا ستتمكن من إدارة محتوى English Academy،
+                    وتنظيم المنهج وإضافة الدروس والكلمات والاختبارات وتصحيح إجابات الطلاب.
+                </p>
+            </section>
+
+            <h2 class="section-title">إدارة المحتوى التعليمي</h2>
+
+            <section class="grid">
+
+                <a href="vocabulary.html" class="card">
+                    <div class="card-icon">📚</div>
+                    <h3>إدارة الكلمات</h3>
+                    <p>إضافة الكلمات ومعانيها وأمثلتها وتعديلها وحذفها.</p>
+                    <span class="ready">متاحة الآن ←</span>
+                </a>
+
+                <a href="grammar.html" class="card">
+                    <div class="card-icon">✍️</div>
+                    <h3>إدارة القواعد</h3>
+                    <p>إنشاء دروس Grammar وإضافة الشرح والتدريبات.</p>
+                    <span class="ready">متاحة الآن ←</span>
+                </a>
+
+                <a href="skills.html" class="card">
+                    <div class="card-icon">🎯</div>
+                    <h3>إدارة Skills</h3>
+                    <p>إضافة وتعديل وحذف محتوى قسم المهارات.</p>
+                    <span class="ready">متاحة الآن ←</span>
+                </a>
+
+                <a href="story.html" class="card">
+                    <div class="card-icon">📖</div>
+                    <h3>إدارة Story</h3>
+                    <p>إضافة وتعديل وحذف محتوى قسم القصة.</p>
+                    <span class="ready">متاحة الآن ←</span>
+                </a>
+
+                <a href="foundation.html" class="card">
+                    <div class="card-icon">📘</div>
+                    <h3>إدارة Foundation</h3>
+                    <p>إضافة دروس التأسيس وتعديلها وحذفها.</p>
+                    <span class="ready">متاحة الآن ←</span>
+                </a>
+
+                <a href="units.html" class="card">
+                    <div class="card-icon">📖</div>
+                    <h3>إدارة الوحدات</h3>
+                    <p>إضافة الوحدات وتعديلها وحذفها وتنظيم المنهج.</p>
+                    <span class="ready">متاحة الآن ←</span>
+                </a>
+
+
+                <a href="exams.html" class="card">
+                    <div class="card-icon">🎯</div>
+                    <h3>إدارة الاختبارات</h3>
+                    <p>إنشاء الاختبارات وإضافة الأسئلة والاختيارات وتحديد الدرجات.</p>
+                    <span class="ready">متاحة الآن ←</span>
+                </a>
+
+                <a href="submissions.html" class="card">
+                    <div class="card-icon">📝</div>
+                    <h3>تصحيح الاختبارات</h3>
+                    <p>مراجعة إجابات الطلاب والأسئلة المقالية وتحديد الدرجات واعتماد النتائج.</p>
+                    <span class="ready">متاحة الآن ←</span>
+                </a>
+
+                <a href="students.html" class="card">
+                    <div class="card-icon">👨‍🎓</div>
+                    <h3>إدارة الطلاب</h3>
+                    <p>عرض حسابات الطلاب وأسمائهم وبريدهم الإلكتروني ومتابعة الاختبارات والنتائج.</p>
+                    <span class="ready">متاحة الآن ←</span>
+                </a>
+            </section>
+        </main>
+    </div>
+
+    <script type="module">
+        import { auth, db } from "./firebase.js";
+
+        import {
+            onAuthStateChanged,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+        import {
+            doc,
+            getDoc
+        } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+        const status = document.getElementById("status");
+        const layout = document.getElementById("adminLayout");
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.replace("login.html");
+                return;
+            }
+
+            try {
+                const userSnapshot = await getDoc(
+                    doc(db, "users", user.uid)
+                );
+
+                if (!userSnapshot.exists()) {
+                    await signOut(auth);
+                    window.location.replace("login.html");
+                    return;
+                }
+
+                const userData = userSnapshot.data();
+
+                if (userData.role !== "admin") {
+                    status.textContent = "ليس لديك صلاحية دخول لوحة الإدارة.";
+                    await signOut(auth);
+
+                    setTimeout(() => {
+                        window.location.replace("index.html");
+                    }, 1800);
+
+                    return;
+                }
+
+                document.getElementById("adminName").textContent =
+                    userData.name || "Admin";
+
+                status.hidden = true;
+                layout.hidden = false;
+
+            } catch (error) {
+                console.error(error);
+                status.textContent =
+                    "حدث خطأ أثناء التحقق من صلاحياتك. حاول مرة أخرى.";
+            }
+        });
+
+        document.getElementById("logoutButton")
+            .addEventListener("click", async () => {
+                try {
+                    await signOut(auth);
+                    window.location.replace("login.html");
+                } catch (error) {
+                    console.error(error);
+                    alert("تعذر تسجيل الخروج.");
+                }
+            });
+    </script>
+
+</body>
+
+</html>

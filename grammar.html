@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080f1e">
+  <title>إدارة القواعد | English Academy</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #080f1e;
+      color: #f1f5f9;
+    }
+
+    header {
+      padding: 18px 6%;
+      background: #121b2e;
+      border-bottom: 1px solid #263449;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    a { color: #38bdf8; text-decoration: none; }
+
+    main {
+      width: min(1000px, 92%);
+      margin: 35px auto;
+    }
+
+    .panel {
+      background: #121b2e;
+      border: 1px solid #263449;
+      border-radius: 15px;
+      padding: 22px;
+      margin-bottom: 22px;
+    }
+
+    h1 { font-size: 28px; }
+    h2 { font-size: 21px; margin-top: 0; }
+
+    label {
+      display: block;
+      margin: 14px 0 7px;
+      color: #cbd5e1;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      background: #080f1e;
+      color: white;
+      font-size: 15px;
+      font-family: Arial, sans-serif;
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+      line-height: 1.8;
+    }
+
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 12px 18px;
+      margin-top: 15px;
+      background: #0284c7;
+      color: white;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    button:hover { background: #0369a1; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+
+    .delete {
+      background: #b91c1c;
+      margin-right: 8px;
+    }
+
+    .delete:hover { background: #991b1b; }
+
+    .grammar-card {
+      background: #0b1629;
+      border: 1px solid #263449;
+      border-radius: 12px;
+      padding: 18px;
+      margin-top: 13px;
+    }
+
+    .grammar-card h3 {
+      color: #38bdf8;
+      margin-top: 0;
+      font-size: 21px;
+    }
+
+    .grammar-card p {
+      color: #cbd5e1;
+      line-height: 1.9;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .example {
+      direction: ltr;
+      text-align: left;
+      background: #121b2e;
+      padding: 12px;
+      border-radius: 8px;
+    }
+
+    #status {
+      color: #94a3b8;
+      line-height: 1.8;
+    }
+
+    @media(max-width: 600px) {
+      main { margin: 22px auto; }
+      .panel { padding: 16px; }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <strong>English Academy | إدارة القواعد</strong>
+  <a href="admin.html">العودة للوحة الإدارة</a>
+</header>
+
+<main>
+  <h1>✍️ إدارة Grammar</h1>
+
+  <section class="panel">
+    <h2 id="formTitle">إضافة قاعدة جديدة</h2>
+
+    <form id="grammarForm">
+
+      <label for="title">عنوان القاعدة</label>
+      <input
+        id="title"
+        required
+        maxlength="150"
+        placeholder="Example: Present Simple"
+      >
+
+      <label for="description">شرح القاعدة</label>
+      <textarea
+        id="description"
+        required
+        maxlength="5000"
+        placeholder="اكتب شرح القاعدة هنا..."
+      ></textarea>
+
+      <label for="examples">أمثلة باللغة الإنجليزية</label>
+      <textarea
+        id="examples"
+        maxlength="3000"
+        placeholder="I play football every day."
+      ></textarea>
+
+      <label for="translation">ترجمة الأمثلة</label>
+      <textarea
+        id="translation"
+        maxlength="3000"
+        placeholder="أنا ألعب كرة القدم كل يوم."
+      ></textarea>
+
+      <button id="saveButton" type="submit">حفظ القاعدة</button>
+      <button id="cancelButton" type="button" hidden>
+        إلغاء التعديل
+      </button>
+
+    </form>
+
+    <p id="status" role="status"></p>
+  </section>
+
+  <section class="panel">
+    <h2>القواعد المضافة</h2>
+    <div id="grammarList">جارٍ تحميل القواعد...</div>
+  </section>
+</main>
+
+<script type="module">
+
+  import { auth, db } from "./firebase.js";
+
+  import {
+    collection,
+    addDoc,
+    getDocs,
+    doc,
+    getDoc,
+    updateDoc,
+    deleteDoc,
+    serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+  import { onAuthStateChanged } from
+    "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+
+  const form = document.getElementById("grammarForm");
+  const titleInput = document.getElementById("title");
+  const descriptionInput = document.getElementById("description");
+  const examplesInput = document.getElementById("examples");
+  const translationInput = document.getElementById("translation");
+
+  const grammarList = document.getElementById("grammarList");
+  const status = document.getElementById("status");
+  const saveButton = document.getElementById("saveButton");
+  const cancelButton = document.getElementById("cancelButton");
+
+  let editingId = null;
+  let isAdmin = false;
+
+
+  onAuthStateChanged(auth, async (user) => {
+
+    if (!user) {
+      location.replace("login.html");
+      return;
+    }
+
+    try {
+
+      const profile = await getDoc(doc(db, "users", user.uid));
+
+      if (!profile.exists() || profile.data().role !== "admin") {
+        location.replace("index.html");
+        return;
+      }
+
+      isAdmin = true;
+      await loadGrammar();
+
+    } catch (error) {
+
+      console.error(error);
+      status.textContent = "تعذر التحقق من صلاحيات الإدارة.";
+
+    }
+
+  });
+
+
+  form.addEventListener("submit", async (event) => {
+
+    event.preventDefault();
+
+    if (!isAdmin) return;
+
+    const data = {
+      title: titleInput.value.trim(),
+      description: descriptionInput.value.trim(),
+      examples: examplesInput.value.trim(),
+      translation: translationInput.value.trim(),
+      updatedAt: serverTimestamp()
+    };
+
+    if (!data.title || !data.description) {
+      status.textContent = "اكتب عنوان القاعدة وشرحها أولًا.";
+      return;
+    }
+
+    saveButton.disabled = true;
+    status.textContent = "جارٍ الحفظ...";
+
+    try {
+
+      if (editingId) {
+
+        await updateDoc(doc(db, "grammar", editingId), data);
+        status.textContent = "تم تعديل القاعدة بنجاح.";
+
+      } else {
+
+        await addDoc(collection(db, "grammar"), {
+          ...data,
+          createdAt: serverTimestamp()
+        });
+
+        status.textContent = "تمت إضافة القاعدة بنجاح.";
+
+      }
+
+      resetForm();
+      await loadGrammar();
+
+    } catch (error) {
+
+      console.error(error);
+      status.textContent =
+        "تعذر الحفظ. راجع اتصال Firebase وقواعد Firestore.";
+
+    } finally {
+
+      saveButton.disabled = false;
+
+    }
+
+  });
+
+
+  async function loadGrammar() {
+
+    grammarList.textContent = "جارٍ تحميل القواعد...";
+
+    try {
+
+      const snapshot = await getDocs(collection(db, "grammar"));
+
+      grammarList.innerHTML = "";
+
+      if (snapshot.empty) {
+        grammarList.textContent = "لم تتم إضافة قواعد حتى الآن.";
+        return;
+      }
+
+      snapshot.forEach((grammarDoc) => {
+
+        const item = grammarDoc.data();
+
+        const card = document.createElement("article");
+        card.className = "grammar-card";
+
+        const title = document.createElement("h3");
+        title.textContent = item.title || "";
+
+        const description = document.createElement("p");
+        description.textContent = item.description || "";
+
+        const examples = document.createElement("p");
+        examples.className = "example";
+        examples.textContent = item.examples || "لا توجد أمثلة.";
+
+        const translation = document.createElement("p");
+        translation.textContent =
+          `ترجمة الأمثلة: ${item.translation || "لا توجد ترجمة."}`;
+
+        const editButton = document.createElement("button");
+        editButton.textContent = "تعديل";
+
+        editButton.addEventListener("click", () => {
+
+          editingId = grammarDoc.id;
+
+          titleInput.value = item.title || "";
+          descriptionInput.value = item.description || "";
+          examplesInput.value = item.examples || "";
+          translationInput.value = item.translation || "";
+
+          document.getElementById("formTitle").textContent =
+            "تعديل القاعدة";
+
+          saveButton.textContent = "حفظ التعديلات";
+          cancelButton.hidden = false;
+
+          window.scrollTo({ top: 0, behavior: "smooth" });
+
+        });
+
+        const deleteButton = document.createElement("button");
+        deleteButton.textContent = "حذف";
+        deleteButton.className = "delete";
+
+        deleteButton.addEventListener("click", async () => {
+
+          if (!confirm(`هل تريد حذف قاعدة ${item.title}؟`)) return;
+
+          try {
+
+            await deleteDoc(doc(db, "grammar", grammarDoc.id));
+
+            status.textContent = "تم حذف القاعدة.";
+            await loadGrammar();
+
+          } catch (error) {
+
+            console.error(error);
+            status.textContent = "تعذر حذف القاعدة.";
+
+          }
+
+        });
+
+        card.append(
+          title,
+          description,
+          examples,
+          translation,
+          editButton,
+          deleteButton
+        );
+
+        grammarList.appendChild(card);
+
+      });
+
+    } catch (error) {
+
+      console.error(error);
+      grammarList.textContent =
+        "تعذر تحميل القواعد. راجع قواعد Firestore.";
+
+    }
+
+  }
+
+
+  function resetForm() {
+
+    form.reset();
+    editingId = null;
+
+    document.getElementById("formTitle").textContent =
+      "إضافة قاعدة جديدة";
+
+    saveButton.textContent = "حفظ القاعدة";
+    cancelButton.hidden = true;
+
+  }
+
+
+  cancelButton.addEventListener("click", () => {
+
+    resetForm();
+    status.textContent = "";
+
+  });
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080f1e">
+  <title>Vocabulary | English Academy</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #080f1e;
+      color: #f1f5f9;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      padding: 18px 6%;
+      background: #121b2e;
+      border-bottom: 1px solid #263449;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    header strong { font-size: 19px; }
+    a { color: #38bdf8; text-decoration: none; }
+
+    main {
+      width: min(1000px, 92%);
+      margin: 35px auto;
+    }
+
+    h1 { font-size: 30px; }
+
+    .intro {
+      color: #94a3b8;
+      line-height: 1.9;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 25px 0;
+    }
+
+    input {
+      flex: 1;
+      min-width: 220px;
+      padding: 14px;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      background: #121b2e;
+      color: white;
+      font-size: 15px;
+    }
+
+    .words-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .word-card {
+      padding: 20px;
+      background: #121b2e;
+      border: 1px solid #263449;
+      border-radius: 14px;
+    }
+
+    .word {
+      color: #38bdf8;
+      font-size: 24px;
+      direction: ltr;
+      text-align: right;
+      margin: 0 0 12px;
+    }
+
+    .meaning {
+      font-size: 17px;
+      color: #f8fafc;
+      margin-bottom: 15px;
+    }
+
+    .example {
+      padding: 12px;
+      background: #080f1e;
+      border-radius: 9px;
+      color: #cbd5e1;
+      direction: ltr;
+      text-align: left;
+      line-height: 1.8;
+      overflow-wrap: anywhere;
+    }
+
+    .translation {
+      color: #94a3b8;
+      line-height: 1.8;
+      margin-top: 10px;
+    }
+
+    .message {
+      padding: 25px;
+      background: #121b2e;
+      border: 1px solid #263449;
+      border-radius: 12px;
+      text-align: center;
+      color: #94a3b8;
+      line-height: 1.8;
+      grid-column: 1 / -1;
+    }
+
+    footer {
+      text-align: center;
+      padding: 25px;
+      color: #64748b;
+    }
+
+    @media (max-width: 600px) {
+      main { margin: 22px auto; }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <strong>English Academy</strong>
+  <a href="dashboard.html">الصفحة الشخصية</a>
+</header>
+
+<main>
+  <h1>📚 Vocabulary</h1>
+  <p class="intro">
+    تعلّم كلمات المنهج الإنجليزي ومعانيها، واقرأ الأمثلة لتفهم طريقة استخدامها.
+  </p>
+
+  <div class="toolbar">
+    <input
+      type="search"
+      id="searchInput"
+      placeholder="ابحث عن كلمة أو معنى..."
+      autocomplete="off"
+    >
+  </div>
+
+  <section class="words-grid" id="wordsList">
+    <div class="message">جارٍ تحميل الكلمات...</div>
+  </section>
+</main>
+
+<footer>English Academy © 2026</footer>
+
+<script type="module">
+  import { auth, db } from "./firebase.js";
+
+  import {
+    collection,
+    getDocs
+  } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+  import { onAuthStateChanged } from
+    "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+  const wordsList = document.getElementById("wordsList");
+  const searchInput = document.getElementById("searchInput");
+
+  let allWords = [];
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      location.replace("login.html");
+      return;
+    }
+
+    await loadWords();
+  });
+
+  async function loadWords() {
+    try {
+      const snapshot = await getDocs(collection(db, "vocabulary"));
+
+      allWords = snapshot.docs.map((wordDoc) => ({
+        id: wordDoc.id,
+        ...wordDoc.data()
+      }));
+
+      allWords.sort((a, b) =>
+        (a.word || "").localeCompare(b.word || "", "en")
+      );
+
+      displayWords(allWords);
+
+    } catch (error) {
+      console.error(error);
+
+      wordsList.innerHTML = "";
+      showMessage("تعذر تحميل الكلمات. تأكد من اتصال Firebase وقواعد Firestore.");
+    }
+  }
+
+  function displayWords(words) {
+    wordsList.innerHTML = "";
+
+    if (words.length === 0) {
+      showMessage(
+        allWords.length === 0
+          ? "لم تتم إضافة كلمات حتى الآن."
+          : "لا توجد نتائج مطابقة للبحث."
+      );
+      return;
+    }
+
+    words.forEach((item) => {
+      const card = document.createElement("article");
+      card.className = "word-card";
+
+      const word = document.createElement("h2");
+      word.className = "word";
+      word.textContent = item.word || "";
+
+      const meaning = document.createElement("div");
+      meaning.className = "meaning";
+      meaning.textContent = item.meaning || "";
+
+      card.append(word, meaning);
+
+      if (item.example) {
+        const example = document.createElement("div");
+        example.className = "example";
+        example.textContent = item.example;
+        card.appendChild(example);
+      }
+
+      if (item.translation) {
+        const translation = document.createElement("div");
+        translation.className = "translation";
+        translation.textContent = `الترجمة: ${item.translation}`;
+        card.appendChild(translation);
+      }
+
+      wordsList.appendChild(card);
+    });
+  }
+
+  function showMessage(message) {
+    const box = document.createElement("div");
+    box.className = "message";
+    box.textContent = message;
+    wordsList.appendChild(box);
+  }
+
+  searchInput.addEventListener("input", () => {
+    const query = searchInput.value.trim().toLowerCase();
+
+    const filtered = allWords.filter((item) => {
+      return (
+        (item.word || "").toLowerCase().includes(query) ||
+        (item.meaning || "").toLowerCase().includes(query)
+      );
+    });
+
+    displayWords(filtered);
+  });
+</script>
+
+</body>
+</html>

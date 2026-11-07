@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080f1e">
+  <title>إدارة الدروس | English Academy</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #080f1e;
+      color: #f8fafc;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      padding: 20px 5%;
+      background: #101a2c;
+      border-bottom: 1px solid #26364d;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    header h2 {
+      margin: 0;
+      color: #38bdf8;
+    }
+
+    a {
+      color: #22d3ee;
+      text-decoration: none;
+    }
+
+    main {
+      width: min(1050px, 92%);
+      margin: 35px auto;
+    }
+
+    .panel {
+      padding: 25px;
+      margin-bottom: 25px;
+      background: #121b2e;
+      border: 1px solid #26364d;
+      border-radius: 16px;
+    }
+
+    .unit-info {
+      border-color: #164e63;
+      background: linear-gradient(120deg, #164e63, #172554);
+    }
+
+    .unit-info p {
+      color: #dbeafe;
+      line-height: 1.8;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .field {
+      margin-bottom: 15px;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      background: #0b1120;
+      color: white;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: #06b6d4;
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      line-height: 1.7;
+    }
+
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 12px 17px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+
+    .primary {
+      background: #06b6d4;
+      color: #06202a;
+    }
+
+    .secondary {
+      background: #334155;
+      color: white;
+      margin-right: 8px;
+    }
+
+    .edit {
+      background: #1d4ed8;
+      color: white;
+    }
+
+    .delete {
+      background: #991b1b;
+      color: white;
+    }
+
+    .logout {
+      background: #451a1a;
+      color: #fecaca;
+    }
+
+    .lesson-list {
+      display: grid;
+      gap: 15px;
+    }
+
+    .lesson-card {
+      padding: 20px;
+      background: #0b1120;
+      border: 1px solid #26364d;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .lesson-card h3 {
+      margin: 0 0 10px;
+      color: #22d3ee;
+    }
+
+    .lesson-card p {
+      margin: 7px 0;
+      color: #94a3b8;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .lesson-meta {
+      color: #94a3b8;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    #message {
+      margin: 15px 0;
+      line-height: 1.7;
+    }
+
+    .empty {
+      color: #94a3b8;
+      text-align: center;
+      padding: 25px;
+    }
+
+    @media (max-width: 650px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .full {
+        grid-column: auto;
+      }
+
+      .panel {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h2>English Academy</h2>
+
+    <div>
+      <a href="units.html">العودة للوحدات</a>
+      <button class="logout" id="logoutButton">تسجيل الخروج</button>
+    </div>
+  </header>
+
+  <main>
+
+    <section class="panel unit-info">
+      <h1 id="unitTitle">جاري تحميل الوحدة...</h1>
+      <p id="unitDescription"></p>
+    </section>
+
+    <div id="message" role="status" aria-live="polite"></div>
+
+    <section class="panel">
+      <h2 id="formTitle">إضافة درس جديد</h2>
+
+      <form id="lessonForm">
+
+        <div class="form-grid">
+
+          <div class="field">
+            <label for="lessonNumber">ترتيب الدرس</label>
+            <input
+              id="lessonNumber"
+              type="number"
+              min="1"
+              step="1"
+              placeholder="مثال: 1"
+              required
+            >
+          </div>
+
+          <div class="field">
+            <label for="lessonType">نوع الدرس</label>
+            <select id="lessonType" required>
+              <option value="شرح">شرح</option>
+              <option value="فيديو">فيديو</option>
+              <option value="قراءة">قراءة</option>
+              <option value="تدريب">تدريب</option>
+              <option value="مراجعة">مراجعة</option>
+            </select>
+          </div>
+
+          <div class="field full">
+            <label for="lessonTitle">عنوان الدرس</label>
+            <input
+              id="lessonTitle"
+              type="text"
+              maxlength="180"
+              placeholder="اكتب عنوان الدرس"
+              required
+            >
+          </div>
+
+          <div class="field full">
+            <label for="lessonDescription">وصف الدرس</label>
+            <textarea
+              id="lessonDescription"
+              maxlength="2000"
+              placeholder="اكتب وصفًا مختصرًا للدرس..."
+            ></textarea>
+          </div>
+
+          <div class="field full">
+            <label for="lessonContent">محتوى الدرس والشرح</label>
+            <textarea
+              id="lessonContent"
+              maxlength="20000"
+              placeholder="اكتب شرح الدرس هنا..."
+            ></textarea>
+          </div>
+
+          <div class="field full">
+            <label for="videoUrl">رابط الفيديو (اختياري)</label>
+            <input
+              id="videoUrl"
+              type="url"
+              placeholder="https://example.com/video"
+            >
+          </div>
+
+          <div class="field full">
+            <label for="pdfUrl">رابط ملف PDF (اختياري)</label>
+            <input
+              id="pdfUrl"
+              type="url"
+              placeholder="https://example.com/file.pdf"
+            >
+          </div>
+
+        </div>
+
+        <button class="primary" id="saveButton" type="submit">
+          حفظ الدرس
+        </button>
+
+        <button
+          class="secondary"
+          id="cancelButton"
+          type="button"
+          hidden
+        >
+          إلغاء التعديل
+        </button>
+
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>دروس الوحدة</h2>
+
+      <div id="lessonList" class="lesson-list">
+        <p class="empty">جاري تحميل الدروس...</p>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+
+    import {
+      onAuthStateChanged,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    import {
+      collection,
+      addDoc,
+      getDocs,
+      getDoc,
+      doc,
+      updateDoc,
+      deleteDoc,
+      query,
+      where,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    const params = new URLSearchParams(window.location.search);
+    const unitId = params.get("unitId");
+
+    const form = document.getElementById("lessonForm");
+    const lessonNumber = document.getElementById("lessonNumber");
+    const lessonType = document.getElementById("lessonType");
+    const lessonTitle = document.getElementById("lessonTitle");
+    const lessonDescription = document.getElementById("lessonDescription");
+    const lessonContent = document.getElementById("lessonContent");
+    const videoUrl = document.getElementById("videoUrl");
+    const pdfUrl = document.getElementById("pdfUrl");
+
+    const lessonList = document.getElementById("lessonList");
+    const message = document.getElementById("message");
+    const saveButton = document.getElementById("saveButton");
+    const cancelButton = document.getElementById("cancelButton");
+    const formTitle = document.getElementById("formTitle");
+
+    let currentLessons = [];
+    let editingId = null;
+    let isAdmin = false;
+    let unitData = null;
+
+    function showMessage(text, type = "success") {
+      message.style.color =
+        type === "success" ? "#4ade80" : "#f87171";
+
+      message.textContent = text;
+    }
+
+    function escapeHTML(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      })[char]);
+    }
+
+    function validOptionalUrl(value) {
+      if (!value) return true;
+
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:" || url.protocol === "http:";
+      } catch {
+        return false;
+      }
+    }
+
+    function resetForm() {
+      form.reset();
+      editingId = null;
+      formTitle.textContent = "إضافة درس جديد";
+      saveButton.textContent = "حفظ الدرس";
+      cancelButton.hidden = true;
+    }
+
+    async function loadUnit() {
+      const snapshot = await getDoc(doc(db, "units", unitId));
+
+      if (!snapshot.exists()) {
+        throw new Error("UNIT_NOT_FOUND");
+      }
+
+      unitData = snapshot.data();
+
+      document.getElementById("unitTitle").textContent =
+        `الوحدة ${unitData.number}: ${unitData.title}`;
+
+      document.getElementById("unitDescription").textContent =
+        unitData.description || "لا يوجد وصف لهذه الوحدة.";
+    }
+
+    async function loadLessons() {
+      lessonList.innerHTML =
+        '<p class="empty">جاري تحميل الدروس...</p>';
+
+      try {
+        const lessonsQuery = query(
+          collection(db, "lessons"),
+          where("unitId", "==", unitId)
+        );
+
+        const snapshot = await getDocs(lessonsQuery);
+
+        currentLessons = snapshot.docs.map(item => ({
+          id: item.id,
+          ...item.data()
+        }));
+
+        currentLessons.sort((a, b) =>
+          Number(a.number) - Number(b.number)
+        );
+
+        renderLessons();
+
+      } catch (error) {
+        console.error(error);
+
+        lessonList.innerHTML =
+          '<p class="empty">تعذر تحميل الدروس. تحقق من اتصال Firebase والقواعد.</p>';
+      }
+    }
+
+    function renderLessons() {
+      if (currentLessons.length === 0) {
+        lessonList.innerHTML =
+          '<p class="empty">لا توجد دروس في هذه الوحدة حتى الآن.</p>';
+        return;
+      }
+
+      lessonList.innerHTML = currentLessons.map(lesson => `
+        <article class="lesson-card">
+          <div>
+            <div class="lesson-meta">
+              الدرس رقم ${escapeHTML(lesson.number)}
+              — ${escapeHTML(lesson.type)}
+            </div>
+
+            <h3>${escapeHTML(lesson.title)}</h3>
+
+            <p>${escapeHTML(lesson.description || "لا يوجد وصف.")}</p>
+
+            ${lesson.videoUrl ? "<p>يوجد رابط فيديو مرفق</p>" : ""}
+            ${lesson.pdfUrl ? "<p>يوجد ملف PDF مرفق</p>" : ""}
+          </div>
+
+          <div class="actions">
+            <button
+              class="edit"
+              data-action="edit"
+              data-id="${escapeHTML(lesson.id)}"
+            >
+              تعديل
+            </button>
+
+            <button
+              class="delete"
+              data-action="delete"
+              data-id="${escapeHTML(lesson.id)}"
+            >
+              حذف
+            </button>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+
+      if (!isAdmin || !unitData) {
+        showMessage("ليس لديك صلاحية تنفيذ هذا الإجراء.", "error");
+        return;
+      }
+
+      const number = Number(lessonNumber.value);
+      const title = lessonTitle.value.trim();
+      const description = lessonDescription.value.trim();
+      const content = lessonContent.value.trim();
+      const video = videoUrl.value.trim();
+      const pdf = pdfUrl.value.trim();
+
+      if (!Number.isInteger(number) || number < 1) {
+        showMessage("اكتب ترتيبًا صحيحًا للدرس.", "error");
+        return;
+      }
+
+      if (!title) {
+        showMessage("اكتب عنوان الدرس.", "error");
+        return;
+      }
+
+      if (!validOptionalUrl(video) || !validOptionalUrl(pdf)) {
+        showMessage("تأكد من صحة روابط الفيديو وملف PDF.", "error");
+        return;
+      }
+
+      const duplicate = currentLessons.some(lesson =>
+        Number(lesson.number) === number &&
+        lesson.id !== editingId
+      );
+
+      if (duplicate) {
+        showMessage("ترتيب هذا الدرس مستخدم بالفعل داخل الوحدة.", "error");
+        return;
+      }
+
+      saveButton.disabled = true;
+      saveButton.textContent = "جاري الحفظ...";
+
+      try {
+        const data = {
+          unitId,
+          unitNumber: unitData.number,
+          number,
+          type: lessonType.value,
+          title,
+          description,
+          content,
+          videoUrl: video,
+          pdfUrl: pdf,
+          updatedAt: serverTimestamp()
+        };
+
+        if (editingId) {
+          await updateDoc(
+            doc(db, "lessons", editingId),
+            data
+          );
+
+          showMessage("تم تعديل الدرس بنجاح.");
+        } else {
+          await addDoc(
+            collection(db, "lessons"),
+            {
+              ...data,
+              createdAt: serverTimestamp()
+            }
+          );
+
+          showMessage("تمت إضافة الدرس بنجاح.");
+        }
+
+        resetForm();
+        await loadLessons();
+
+      } catch (error) {
+        console.error(error);
+
+        showMessage(
+          "تعذر حفظ الدرس. تحقق من صلاحيات الأدمن وقواعد Firestore.",
+          "error"
+        );
+
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent =
+          editingId ? "حفظ التعديلات" : "حفظ الدرس";
+      }
+    });
+
+    lessonList.addEventListener("click", async event => {
+      const button = event.target.closest("button[data-action]");
+
+      if (!button || !isAdmin) return;
+
+      const id = button.dataset.id;
+      const action = button.dataset.action;
+
+      const lesson = currentLessons.find(item => item.id === id);
+
+      if (!lesson) return;
+
+      if (action === "edit") {
+        editingId = id;
+
+        lessonNumber.value = lesson.number;
+        lessonType.value = lesson.type || "شرح";
+        lessonTitle.value = lesson.title || "";
+        lessonDescription.value = lesson.description || "";
+        lessonContent.value = lesson.content || "";
+        videoUrl.value = lesson.videoUrl || "";
+        pdfUrl.value = lesson.pdfUrl || "";
+
+        formTitle.textContent = "تعديل الدرس";
+        saveButton.textContent = "حفظ التعديلات";
+        cancelButton.hidden = false;
+
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      if (action === "delete") {
+        const confirmed = confirm(
+          `هل أنت متأكد من حذف الدرس "${lesson.title}"؟`
+        );
+
+        if (!confirmed) return;
+
+        button.disabled = true;
+
+        try {
+          await deleteDoc(doc(db, "lessons", id));
+
+          if (editingId === id) resetForm();
+
+          showMessage("تم حذف الدرس بنجاح.");
+          await loadLessons();
+
+        } catch (error) {
+          console.error(error);
+          showMessage("تعذر حذف الدرس.", "error");
+          button.disabled = false;
+        }
+      }
+    });
+
+    cancelButton.addEventListener("click", resetForm);
+
+    document.getElementById("logoutButton")
+      .addEventListener("click", async () => {
+        await signOut(auth);
+        window.location.replace("login.html");
+      });
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        window.location.replace("login.html");
+        return;
+      }
+
+      if (!unitId) {
+        showMessage("لم يتم تحديد الوحدة. ارجع إلى صفحة الوحدات.", "error");
+        lessonList.innerHTML = "";
+        return;
+      }
+
+      try {
+        const userSnapshot = await getDoc(
+          doc(db, "users", user.uid)
+        );
+
+        if (
+          !userSnapshot.exists() ||
+          userSnapshot.data().role !== "admin"
+        ) {
+          await signOut(auth);
+          window.location.replace("login.html");
+          return;
+        }
+
+        isAdmin = true;
+
+        await loadUnit();
+        await loadLessons();
+
+      } catch (error) {
+        console.error(error);
+
+        if (error.message === "UNIT_NOT_FOUND") {
+          showMessage("هذه الوحدة غير موجودة.", "error");
+        } else {
+          showMessage("تعذر تحميل بيانات الصفحة.", "error");
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>

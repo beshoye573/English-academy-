@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#080f1e">
+    <title>إدارة الطلاب | English Academy</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 25px;
+            background: #080f1e;
+            color: #f8fafc;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            border-bottom: 1px solid #26364d;
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            color: #38bdf8;
+            margin: 0 0 10px;
+        }
+
+        .muted {
+            color: #94a3b8;
+        }
+
+        button, input {
+            font: inherit;
+        }
+
+        button {
+            border: 0;
+            border-radius: 9px;
+            padding: 12px 17px;
+            background: #0284c7;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0369a1;
+        }
+
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 25px 0;
+        }
+
+        .stat-card {
+            padding: 22px;
+            border: 1px solid #26364d;
+            border-radius: 14px;
+            background: #121b2e;
+        }
+
+        .stat-card strong {
+            display: block;
+            font-size: 30px;
+            color: #38bdf8;
+            margin-bottom: 8px;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            margin: 25px 0;
+            flex-wrap: wrap;
+        }
+
+        .toolbar input {
+            flex: 1;
+            min-width: 220px;
+            padding: 14px;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            background: #121b2e;
+            color: white;
+            outline: none;
+        }
+
+        .toolbar input:focus {
+            border-color: #38bdf8;
+        }
+
+        .students-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 17px;
+        }
+
+        .student-card {
+            padding: 22px;
+            border: 1px solid #26364d;
+            border-radius: 14px;
+            background: #121b2e;
+        }
+
+        .student-card:hover {
+            border-color: #38bdf8;
+        }
+
+        .avatar {
+            width: 52px;
+            height: 52px;
+            display: grid;
+            place-items: center;
+            border-radius: 14px;
+            background: #164e63;
+            color: #67e8f9;
+            font-size: 23px;
+            margin-bottom: 15px;
+        }
+
+        .student-card h3 {
+            margin: 0 0 10px;
+        }
+
+        .student-email {
+            color: #94a3b8;
+            font-size: 13px;
+            overflow-wrap: anywhere;
+            margin-bottom: 15px;
+        }
+
+        .student-card button {
+            width: 100%;
+            margin-top: 12px;
+        }
+
+        .panel {
+            background: #121b2e;
+            border: 1px solid #26364d;
+            border-radius: 14px;
+            padding: 22px;
+            margin: 20px 0;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .profile-item {
+            background: #0b1527;
+            padding: 16px;
+            border-radius: 10px;
+            overflow-wrap: anywhere;
+        }
+
+        .profile-item strong {
+            display: block;
+            color: #38bdf8;
+            margin-bottom: 8px;
+        }
+
+        .exam-card {
+            background: #0b1527;
+            padding: 16px;
+            border: 1px solid #26364d;
+            border-radius: 10px;
+            margin: 12px 0;
+        }
+
+        .success {
+            color: #4ade80;
+        }
+
+        .warning {
+            color: #fbbf24;
+        }
+
+        .error {
+            color: #f87171;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px 15px;
+            color: #94a3b8;
+        }
+
+        @media(max-width: 600px) {
+            body {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<main class="container">
+
+    <header>
+        <div>
+            <h1>👨‍🎓 إدارة الطلاب</h1>
+            <p class="muted">متابعة حسابات الطلاب وامتحاناتهم ونتائجهم.</p>
+        </div>
+
+        <button onclick="location.href='admin.html'">
+            العودة للوحة الإدارة
+        </button>
+    </header>
+
+    <div id="status" class="panel">
+        جاري التحقق من صلاحيات الدخول...
+    </div>
+
+    <div id="mainContent" class="hidden">
+
+        <section class="stats">
+
+            <div class="stat-card">
+                <strong id="totalStudents">0</strong>
+                <span class="muted">إجمالي الطلاب</span>
+            </div>
+
+            <div class="stat-card">
+                <strong id="totalSubmissions">0</strong>
+                <span class="muted">إجمالي التسليمات</span>
+            </div>
+
+        </section>
+
+        <section id="studentsSection">
+
+            <h2>قائمة الطلاب</h2>
+
+            <div class="toolbar">
+                <input
+                    id="searchInput"
+                    type="search"
+                    placeholder="ابحث باسم الطالب أو البريد الإلكتروني..."
+                >
+
+                <button id="refreshButton">تحديث القائمة</button>
+            </div>
+
+            <div id="studentsGrid" class="students-grid">
+                <div class="empty">جاري تحميل الطلاب...</div>
+            </div>
+
+        </section>
+
+        <section id="profileSection" class="hidden">
+
+            <div class="panel">
+
+                <button id="backButton">← العودة للطلاب</button>
+
+                <h2 id="profileName">ملف الطالب</h2>
+
+                <div class="profile-grid">
+
+                    <div class="profile-item">
+                        <strong>البريد الإلكتروني</strong>
+                        <span id="profileEmail">-</span>
+                    </div>
+
+                    <div class="profile-item">
+                        <strong>تاريخ التسجيل</strong>
+                        <span id="profileDate">-</span>
+                    </div>
+
+                    <div class="profile-item">
+                        <strong>معرّف الحساب</strong>
+                        <span id="profileId">-</span>
+                    </div>
+
+                    <div class="profile-item">
+                        <strong>عدد الاختبارات المسلّمة</strong>
+                        <span id="profileExamCount">0</span>
+                    </div>
+
+                </div>
+
+                <button id="resetPasswordButton">
+                    إرسال رابط إعادة تعيين كلمة المرور
+                </button>
+
+                <p id="resetMessage" class="muted"></p>
+
+                <h3>📋 سجل الاختبارات</h3>
+
+                <div id="studentExams">
+                    <div class="empty">جاري تحميل الاختبارات...</div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+</main>
+
+<script type="module">
+
+    import { auth, db } from "./firebase.js";
+
+    import {
+        onAuthStateChanged,
+        sendPasswordResetEmail
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    import {
+        collection,
+        getDocs,
+        doc,
+        getDoc,
+        query,
+        where,
+        onSnapshot
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+
+    const status = document.getElementById("status");
+    const mainContent = document.getElementById("mainContent");
+    const studentsGrid = document.getElementById("studentsGrid");
+
+    const searchInput = document.getElementById("searchInput");
+
+    let students = [];
+    let selectedStudent = null;
+    let submissions = [];
+    let unsubscribeStudents = null;
+
+
+    function escapeHTML(value) {
+
+        return String(value ?? "").replace(/[&<>"']/g, char => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+        })[char]);
+
+    }
+
+
+    function formatDate(timestamp) {
+
+        if (!timestamp) return "غير متوفر";
+
+        try {
+
+            const date = timestamp.toDate
+                ? timestamp.toDate()
+                : new Date(timestamp);
+
+            return date.toLocaleString("ar-EG");
+
+        } catch {
+            return "غير متوفر";
+        }
+
+    }
+
+
+    onAuthStateChanged(auth, async user => {
+
+        if (!user) {
+            location.replace("login.html");
+            return;
+        }
+
+        try {
+
+            const adminSnapshot = await getDoc(
+                doc(db, "users", user.uid)
+            );
+
+            if (
+                !adminSnapshot.exists() ||
+                adminSnapshot.data().role !== "admin"
+            ) {
+
+                status.textContent =
+                    "ليس لديك صلاحية الوصول إلى إدارة الطلاب.";
+
+                status.className = "panel error";
+                return;
+
+            }
+
+            status.classList.add("hidden");
+            mainContent.classList.remove("hidden");
+
+            startStudentsListener();
+
+        } catch (error) {
+
+            console.error(error);
+
+            status.textContent =
+                "حدث خطأ أثناء التحقق من الصلاحيات: " + error.message;
+
+            status.className = "panel error";
+
+        }
+
+    });
+
+
+    function startStudentsListener() {
+
+        if (unsubscribeStudents) {
+            unsubscribeStudents();
+        }
+
+        studentsGrid.innerHTML =
+            '<div class="empty">جاري تحميل الطلاب...</div>';
+
+        unsubscribeStudents = onSnapshot(
+            collection(db, "users"),
+
+            snapshot => {
+
+                students = snapshot.docs
+                    .map(item => ({
+                        id: item.id,
+                        ...item.data()
+                    }))
+                    .filter(student => student.role === "student");
+
+                document.getElementById("totalStudents").textContent =
+                    students.length;
+
+                renderStudents();
+
+                loadAllSubmissionsCount();
+
+            },
+
+            error => {
+
+                console.error(error);
+
+                studentsGrid.innerHTML =
+                    `<div class="empty error">
+                        تعذر تحميل الطلاب: ${escapeHTML(error.message)}
+                    </div>`;
+
+            }
+
+        );
+
+    }
+
+
+    function renderStudents() {
+
+        const search = searchInput.value.trim().toLowerCase();
+
+        const filtered = students.filter(student => {
+
+            const name = String(student.name || "").toLowerCase();
+            const email = String(student.email || "").toLowerCase();
+
+            return name.includes(search) || email.includes(search);
+
+        });
+
+        studentsGrid.innerHTML = "";
+
+        if (!filtered.length) {
+
+            studentsGrid.innerHTML =
+                '<div class="empty">لا يوجد طلاب مطابقون للبحث.</div>';
+
+            return;
+
+        }
+
+        filtered.forEach(student => {
+
+            const card = document.createElement("article");
+
+            card.className = "student-card";
+
+            const name = student.name || "طالب بدون اسم";
+
+            card.innerHTML = `
+
+                <div class="avatar">👨‍🎓</div>
+
+                <h3>${escapeHTML(name)}</h3>
+
+                <div class="student-email">
+                    ${escapeHTML(student.email || "لا يوجد بريد إلكتروني")}
+                </div>
+
+                <p class="muted">
+                    تاريخ التسجيل:
+                    ${escapeHTML(formatDate(student.createdAt))}
+                </p>
+
+                <button type="button">
+                    الدخول إلى ملف الطالب
+                </button>
+
+            `;
+
+            card.querySelector("button").addEventListener(
+                "click",
+                () => openStudentProfile(student)
+            );
+
+            studentsGrid.appendChild(card);
+
+        });
+
+    }
+
+
+    async function loadAllSubmissionsCount() {
+
+        try {
+
+            const snapshot = await getDocs(
+                collection(db, "exam_submissions")
+            );
+
+            document.getElementById("totalSubmissions").textContent =
+                snapshot.size;
+
+        } catch (error) {
+
+            console.error("Submissions count error:", error);
+
+        }
+
+    }
+
+
+    async function openStudentProfile(student) {
+
+        selectedStudent = student;
+
+        document.getElementById("studentsSection")
+            .classList.add("hidden");
+
+        document.getElementById("profileSection")
+            .classList.remove("hidden");
+
+        document.getElementById("profileName").textContent =
+            student.name || "طالب بدون اسم";
+
+        document.getElementById("profileEmail").textContent =
+            student.email || "-";
+
+        document.getElementById("profileDate").textContent =
+            formatDate(student.createdAt);
+
+        document.getElementById("profileId").textContent =
+            student.id;
+
+        document.getElementById("studentExams").innerHTML =
+            '<div class="empty">جاري تحميل الاختبارات...</div>';
+
+        document.getElementById("resetMessage").textContent = "";
+
+        await loadStudentExams(student.id);
+
+    }
+
+
+    async function loadStudentExams(studentId) {
+
+        const container = document.getElementById("studentExams");
+
+        try {
+
+            const q = query(
+                collection(db, "exam_submissions"),
+                where("studentId", "==", studentId)
+            );
+
+            const snapshot = await getDocs(q);
+
+            submissions = snapshot.docs.map(item => ({
+                id: item.id,
+                ...item.data()
+            }));
+
+            document.getElementById("profileExamCount").textContent =
+                submissions.length;
+
+            if (!submissions.length) {
+
+                container.innerHTML =
+                    '<div class="empty">لم يسلّم الطالب أي اختبارات حتى الآن.</div>';
+
+                return;
+
+            }
+
+            container.innerHTML = "";
+
+            for (const submission of submissions) {
+
+                let examTitle = "اختبار غير معروف";
+
+                try {
+
+                    const examSnapshot = await getDoc(
+                        doc(db, "exams", submission.examId)
+                    );
+
+                    if (examSnapshot.exists()) {
+                        examTitle = examSnapshot.data().title || examTitle;
+                    }
+
+                } catch (error) {
+
+                    console.error(error);
+
+                }
+
+                const graded = submission.status === "graded";
+
+                const card = document.createElement("div");
+
+                card.className = "exam-card";
+
+                card.innerHTML = `
+
+                    <h3>${escapeHTML(examTitle)}</h3>
+
+                    <p>
+                        الحالة:
+                        <strong class="${graded ? "success" : "warning"}">
+                            ${graded ? "تم التصحيح" : "في انتظار التصحيح"}
+                        </strong>
+                    </p>
+
+                    ${
+                        graded
+                        ? `
+                            <p>
+                                الدرجة:
+                                <strong>
+                                    ${escapeHTML(submission.grade)}
+                                    /
+                                    ${escapeHTML(submission.maxScore)}
+                                </strong>
+                            </p>
+
+                            <p class="muted">
+                                ملاحظات الأدمن:
+                                ${escapeHTML(submission.feedback || "لا توجد ملاحظات")}
+                            </p>
+                        `
+                        : ""
+                    }
+
+                    <p class="muted">
+                        تاريخ التسليم:
+                        ${escapeHTML(formatDate(submission.submittedAt))}
+                    </p>
+
+                `;
+
+                container.appendChild(card);
+
+            }
+
+        } catch (error) {
+
+            console.error(error);
+
+            container.innerHTML =
+                `<div class="empty error">
+                    تعذر تحميل الاختبارات: ${escapeHTML(error.message)}
+                </div>`;
+
+        }
+
+    }
+
+
+    document.getElementById("backButton")
+        .addEventListener("click", () => {
+
+            document.getElementById("profileSection")
+                .classList.add("hidden");
+
+            document.getElementById("studentsSection")
+                .classList.remove("hidden");
+
+            selectedStudent = null;
+
+        });
+
+
+    document.getElementById("resetPasswordButton")
+        .addEventListener("click", async () => {
+
+            if (!selectedStudent || !selectedStudent.email) {
+                return;
+            }
+
+            const button = document.getElementById("resetPasswordButton");
+            const message = document.getElementById("resetMessage");
+
+            button.disabled = true;
+            message.textContent = "جاري إرسال رابط إعادة التعيين...";
+
+            try {
+
+                await sendPasswordResetEmail(
+                    auth,
+                    selectedStudent.email
+                );
+
+                message.textContent =
+                    "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريد الطالب.";
+
+                message.className = "success";
+
+            } catch (error) {
+
+                console.error(error);
+
+                message.textContent =
+                    "تعذر إرسال الرابط: " + error.message;
+
+                message.className = "error";
+
+            } finally {
+
+                button.disabled = false;
+
+            }
+
+        });
+
+
+    searchInput.addEventListener("input", renderStudents);
+
+
+    document.getElementById("refreshButton")
+        .addEventListener("click", () => {
+
+            startStudentsListener();
+
+        });
+
+
+    window.addEventListener("beforeunload", () => {
+
+        if (unsubscribeStudents) {
+            unsubscribeStudents();
+        }
+
+    });
+
+</script>
+
+</body>
+</html>
